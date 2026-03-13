@@ -1,0 +1,13 @@
+node_modules/
+.env
+dist/
+.DS_Store
+.dev.vars
+.wrangler/
+vite*.log
+worker.dev*.log
+local-worker/
+worker.js
+wrangler.toml
+.dev.vars.example
+.vite/
