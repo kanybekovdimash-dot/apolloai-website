@@ -6,7 +6,7 @@ This repository now contains only the public frontend for `apolloai.biz` and the
 
 - static frontend pages for GitHub Pages
 - public widget UI
-- client-side call to `https://api.apolloai.biz`
+- client-side call to `https://apolloai-meyram-api.kanybekovdimash.workers.dev`
 - public assets, styles, and interactions
 
 ## What does not live here
@@ -16,7 +16,7 @@ This repository now contains only the public frontend for `apolloai.biz` and the
 - Groq keys
 - RunPod or avatar server config
 
-The backend stays outside this repository and is deployed separately to `api.apolloai.biz`.
+The backend stays outside this repository and is deployed separately to `https://apolloai-meyram-api.kanybekovdimash.workers.dev`.
 
 ## Local frontend development
 
@@ -31,4 +31,4 @@ npm run dev
 - `CNAME` points to `apolloai.biz`.
 - Public brand can remain `Meyram` while the technical domain is `apolloai.biz`.
 - Existing WhatsApp links on the site stay untouched.
-- The site widget is text-first and talks to the external API at `api.apolloai.biz`.
+- The site widget is text-first and talks to the external API at `https://apolloai-meyram-api.kanybekovdimash.workers.dev`.
