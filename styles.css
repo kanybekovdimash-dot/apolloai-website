@@ -2015,11 +2015,7 @@ a {
 }
 
 .casting-widget--dock .avatar-stage__badge {
-    max-width: 248px;
-    min-height: 44px;
-    justify-content: center;
-    padding: 10px 14px;
-    text-align: center;
+    display: none;
 }
 
 .casting-widget--dock .avatar-stage__core video {

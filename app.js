@@ -136,7 +136,8 @@ const state = {
     initialGreetingText: "",
     audioUnlocked: false,
     pendingSpeechBlob: null,
-    speechBlocked: false
+    speechBlocked: false,
+    autoVoiceTimer: 0
 };
 
 const elements = {
@@ -219,6 +220,11 @@ async function requestMicrophoneAccess(force = false) {
         state.microphonePermission = "granted";
         syncAvatarStatus();
         maybeSpeakInitialGreeting();
+        window.setTimeout(() => {
+            if (state.avatarMode !== "speaking") {
+                queueAutoVoiceCapture(120);
+            }
+        }, 360);
     } catch (error) {
         state.microphonePermission = "denied";
         state.microphoneError = error?.name || "unknown";
@@ -264,6 +270,30 @@ async function unlockSpeechPlayback() {
     return playSpeechBlob(pendingBlob);
 }
 
+function queueAutoVoiceCapture(delay = 480) {
+    if (state.autoVoiceTimer) {
+        window.clearTimeout(state.autoVoiceTimer);
+        state.autoVoiceTimer = 0;
+    }
+
+    if (state.microphonePermission !== "granted" || state.pending || state.voiceRecorder || state.avatarMode === "speaking" || document.hidden) {
+        return;
+    }
+
+    state.autoVoiceTimer = window.setTimeout(() => {
+        state.autoVoiceTimer = 0;
+
+        if (state.microphonePermission !== "granted" || state.pending || state.voiceRecorder || state.avatarMode === "speaking" || document.hidden) {
+            return;
+        }
+
+        startVoiceCapture().catch((error) => {
+            console.error("Auto voice capture failed", error);
+            setAvatarMode("idle");
+        });
+    }, delay);
+}
+
 function bindAvatarAudioEvents() {
     if (elements.avatarAudio) {
         elements.avatarAudio.preload = "auto";
@@ -275,10 +305,14 @@ function bindAvatarAudioEvents() {
         setAvatarMode("speaking");
         syncAvatarStatus();
     });
-    elements.avatarAudio?.addEventListener("ended", () => setAvatarMode("idle"));
+    elements.avatarAudio?.addEventListener("ended", () => {
+        setAvatarMode("idle");
+        queueAutoVoiceCapture(180);
+    });
     elements.avatarAudio?.addEventListener("pause", () => {
         if (state.avatarMode === "speaking") {
             setAvatarMode("idle");
+            queueAutoVoiceCapture(180);
         }
     });
 }
@@ -323,6 +357,7 @@ async function handleAvatarCoreInteraction() {
         elements.avatarAudio.pause();
         elements.avatarAudio.currentTime = 0;
         setAvatarMode("idle");
+        queueAutoVoiceCapture(120);
         return;
     }
 
@@ -380,6 +415,7 @@ async function startVoiceCapture() {
 
         if (!blob || !blob.size || !hadSpeech) {
             setAvatarMode("idle");
+            queueAutoVoiceCapture(220);
             return;
         }
 
@@ -516,6 +552,7 @@ async function transcribeSpeechBlob(blob) {
         console.error("Voice pipeline failed", error);
         addAssistantMessage("Не получилось обработать голос. Попробуйте ещё раз.");
         setAvatarMode("idle");
+        queueAutoVoiceCapture(300);
     } finally {
         setPending(false);
     }
