@@ -1894,3 +1894,87 @@ a {
 }
 /* meyram-top-override:end */
 
+
+.casting-widget--dock {
+    right: 20px;
+    bottom: 20px;
+    width: min(320px, calc(100vw - 24px));
+    max-height: none;
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(3, 3, 3, 0.94);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+    cursor: pointer;
+}
+
+.casting-widget--dock .casting-widget__hero--dock {
+    padding: 18px 18px 16px;
+}
+
+.casting-widget--dock .avatar-stage {
+    gap: 14px;
+}
+
+.casting-widget--dock .avatar-stage__core {
+    width: 262px;
+    height: 322px;
+    border-radius: 28px;
+    background: #0d0d0d;
+}
+
+.casting-widget--dock .avatar-stage__ring {
+    width: 288px;
+    height: 348px;
+    border-radius: 32px;
+    border-color: rgba(185, 148, 87, 0.18);
+}
+
+.casting-widget--dock .avatar-stage__logo {
+    display: none;
+}
+
+.casting-widget--dock .avatar-stage__badge {
+    max-width: 248px;
+    min-height: 44px;
+    justify-content: center;
+    padding: 10px 14px;
+    text-align: center;
+}
+
+.casting-widget--dock .avatar-stage__core video {
+    background: #101010;
+}
+
+@media (max-width: 900px) {
+    .casting-widget--dock {
+        right: 14px;
+        bottom: 88px;
+        width: min(240px, calc(100vw - 28px));
+        border-radius: 24px;
+    }
+
+    .casting-widget--dock .casting-widget__hero--dock {
+        padding: 14px 14px 12px;
+    }
+
+    .casting-widget--dock .avatar-stage__core {
+        width: 190px;
+        height: 236px;
+        border-radius: 22px;
+    }
+
+    .casting-widget--dock .avatar-stage__ring {
+        width: 214px;
+        height: 260px;
+        border-radius: 26px;
+    }
+
+    .casting-widget--dock .avatar-stage__badge {
+        max-width: 190px;
+        font-size: 11px;
+    }
+}
+

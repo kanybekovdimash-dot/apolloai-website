@@ -235,7 +235,6 @@
                             <li>Өтінімде бала аты, жасы, қаласы және ата-ана байланысы жиналады.</li>
                             <li>Соңында өтінім менеджерге Telegram арқылы автоматты түрде жіберіледі.</li>
                         </ul>
-                        <button class="btn btn--accent" type="button" data-avatar-open>AI ассистентті ашу</button>
                     </div>
                 </div>
             </section>
@@ -259,7 +258,6 @@
                             <a class="btn btn--light" href="https://wa.me/+77757350968" target="_blank" rel="noreferrer">
                                 WhatsApp
                             </a>
-                            <button class="btn btn--ghost" type="button" data-avatar-open>AI арқылы тіркелу</button>
                         </div>
                     </div>
                 </div>
@@ -285,9 +283,9 @@
             <img src="https://meyram.agency/themes/meyram/assets/img/casting.svg" alt="">
             <span>Кастинг</span>
         </a>
-        <button class="mobile-dock__center" type="button" data-avatar-open>
+        <a class="mobile-dock__center" href="#home" aria-label="Meyram">
             <img src="https://meyram.agency/themes/meyram/assets/img/logo.svg" alt="meyram киностудио">
-        </button>
+        </a>
         <a href="#actors">
             <img src="https://meyram.agency/themes/meyram/assets/img/star.svg" alt="">
             <span>Актер</span>
@@ -297,26 +295,8 @@
             <span>Шолу</span>
         </a>
     </nav>
-
-    <button class="avatar-fab" id="avatarFab" type="button" aria-label="Open AI assistant">
-        <span class="avatar-fab__pulse"></span>
-        <span class="avatar-fab__icon"><img src="https://meyram.agency/themes/meyram/assets/img/logo.svg" alt="meyram киностудио"></span>
-        <span class="avatar-fab__label">AI аватар</span>
-    </button>
-
-    <aside class="casting-widget" id="castingWidget" aria-label="Casting assistant" aria-hidden="true">
-        <div class="casting-widget__header">
-            <div>
-                <p class="casting-widget__eyebrow">Meyram AI</p>
-                <h3>Кастинг ассистенті</h3>
-            </div>
-            <button class="icon-circle icon-circle--light" type="button" id="closeWidget" aria-label="Close assistant">
-                <span></span>
-                <span></span>
-            </button>
-        </div>
-
-        <div class="casting-widget__hero">
+    <aside class="casting-widget casting-widget--dock is-open" id="castingWidget" aria-label="Voice casting assistant" aria-hidden="false">
+        <div class="casting-widget__hero casting-widget__hero--dock">
             <div class="avatar-stage">
                 <div class="avatar-stage__ring"></div>
                 <div class="avatar-stage__core">
@@ -326,41 +306,9 @@
                 </div>
                 <div class="avatar-stage__badge">
                     <span class="avatar-stage__dot"></span>
-                    <span id="avatarStatusText">Онлайн. Принимаю заявки на кастинг.</span>
+                    <span id="avatarStatusText">Онлайн. Жду клиента. Микрофон готов к разговору.</span>
                 </div>
             </div>
-
-            <div class="casting-widget__intro">
-                <p>
-                    Сәлем! Я помогу оставить заявку на кастинг, уточнить возраст, город и контакт родителя.
-                    Напишите сообщение, и я проведу вас по анкете за пару минут.
-                </p>
-                <div class="quick-actions" id="quickActions">
-                    <button class="quick-actions__btn" type="button" data-quick-action="start-lead">Хочу на кастинг</button>
-                    <button class="quick-actions__btn" type="button" data-quick-action="faq-age">По возрасту</button>
-                    <button class="quick-actions__btn" type="button" data-quick-action="faq-process">Как проходит запись</button>
-                </div>
-            </div>
-
-        </div>
-
-        <div class="lead-progress" id="leadProgress">
-            <span>Имя</span>
-            <span>Возраст</span>
-            <span>Город</span>
-            <span>Контакт</span>
-        </div>
-
-        <div class="casting-widget__messages" id="widgetMessages"></div>
-
-        <div class="casting-widget__composer">
-            <label class="sr-only" for="widgetInput">Сообщение ассистенту</label>
-            <textarea id="widgetInput" rows="1" placeholder="Напишите сообщение или ответ..."></textarea>
-            <button class="composer-send" id="widgetSend" type="button" aria-label="Send message">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="m5 12 14-7-4 7 4 7-14-7Z"></path>
-                </svg>
-            </button>
         </div>
     </aside>
 

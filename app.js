@@ -103,7 +103,9 @@ const state = {
     leadActive: false,
     currentField: null,
     submittedAt: null,
-    avatar: null
+    avatar: null,
+    microphonePermission: "idle",
+    microphoneError: ""
 };
 
 const elements = {
@@ -139,8 +141,53 @@ function init() {
     syncLeadProgress();
     syncAvatarDemo();
     syncAvatarStatus();
+    openWidget();
+    window.setTimeout(() => {
+        requestMicrophoneAccess();
+    }, 180);
 }
 
+async function requestMicrophoneAccess(force = false) {
+    if (!navigator.mediaDevices?.getUserMedia) {
+        state.microphonePermission = "unsupported";
+        state.microphoneError = "browser";
+        syncAvatarStatus();
+        return;
+    }
+
+    if (!window.isSecureContext) {
+        state.microphonePermission = "blocked";
+        state.microphoneError = "secure-context";
+        syncAvatarStatus();
+        return;
+    }
+
+    if (!force && ["granted", "pending"].includes(state.microphonePermission)) {
+        return;
+    }
+
+    state.microphonePermission = "pending";
+    state.microphoneError = "";
+    syncAvatarStatus();
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        });
+
+        stream.getTracks().forEach((track) => track.stop());
+        state.microphonePermission = "granted";
+        syncAvatarStatus();
+    } catch (error) {
+        state.microphonePermission = "denied";
+        state.microphoneError = error?.name || "unknown";
+        syncAvatarStatus();
+    }
+}
 function readMetaContent(name) {
     return document.querySelector(`meta[name="${name}"]`)?.getAttribute("content")?.trim() || "";
 }
@@ -249,6 +296,12 @@ function initWidget() {
         elements.widgetInput.value = message;
         autoResizeTextarea({ currentTarget: elements.widgetInput });
         sendWidgetMessage();
+    });
+
+    elements.widget?.addEventListener("click", () => {
+        if (state.microphonePermission !== "granted") {
+            requestMicrophoneAccess(true);
+        }
     });
 }
 
@@ -702,37 +755,42 @@ function syncAvatarStatus(delivery) {
         return;
     }
 
+    if (state.microphonePermission === "pending") {
+        elements.avatarStatusText.textContent = "Проверяю микрофон и готовлю голосовой режим...";
+        return;
+    }
+
+    if (state.microphonePermission === "denied") {
+        elements.avatarStatusText.textContent = "Нажмите на аватар и дайте доступ к микрофону.";
+        return;
+    }
+
+    if (state.microphonePermission === "blocked") {
+        elements.avatarStatusText.textContent = "Для микрофона откройте сайт по HTTPS.";
+        return;
+    }
+
+    if (state.microphonePermission === "unsupported") {
+        elements.avatarStatusText.textContent = "Браузер не поддерживает голосовой доступ к микрофону.";
+        return;
+    }
+
     if (delivery?.ok) {
-        elements.avatarStatusText.textContent = "Заявка отправлена менеджеру в Telegram.";
+        elements.avatarStatusText.textContent = "Заявка отправлена. Жду следующего клиента.";
         return;
     }
 
     if (state.pending) {
-        elements.avatarStatusText.textContent = "AI-ассистент думает и готовит ответ...";
+        elements.avatarStatusText.textContent = "Слушаю и готовлю ответ...";
         return;
     }
 
     if (state.leadActive) {
-        elements.avatarStatusText.textContent = "Собираю анкету на кастинг.";
+        elements.avatarStatusText.textContent = "Записываю клиента на кастинг.";
         return;
     }
 
-    if (state.usingLocalFallback) {
-        elements.avatarStatusText.textContent = "Demo-режим. Backend переключится на api.apolloai.biz.";
-        return;
-    }
-
-    if (resolveAvatarDemoUrl()) {
-        elements.avatarStatusText.textContent = "Онлайн. Live-аватар подключён через RunPod demo.";
-        return;
-    }
-
-    if (state.avatar?.enabled) {
-        elements.avatarStatusText.textContent = "Онлайн. Живой аватар подключён к кастинг-скрипту.";
-        return;
-    }
-
-    elements.avatarStatusText.textContent = "Онлайн. Принимаю заявки на кастинг.";
+    elements.avatarStatusText.textContent = "Онлайн. Жду клиента. Микрофон готов к разговору.";
 }
 
 function syncAssistantMedia(payload) {
