@@ -4,6 +4,16 @@ const SESSION_ENDPOINT = "/session";
 const CHAT_ENDPOINT = "/chat";
 const LEAD_ENDPOINT = "/lead";
 const TTS_ENDPOINT = "/tts";
+const TRANSCRIBE_ENDPOINT = "/transcribe";
+const VOICE_CAPTURE_MAX_MS = 12000;
+const VOICE_SILENCE_MS = 1400;
+const VOICE_ACTIVITY_THRESHOLD = 11;
+const VOICE_MIME_CANDIDATES = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/mp4"
+];
 
 const FIELD_DEFINITIONS = [
     {
@@ -87,8 +97,9 @@ const runtime = {
     publicBrand: readMetaContent("apollo-public-brand") || "Meyram Cinema",
     assistantBrand: readMetaContent("apollo-assistant-brand") || "Meyram AI",
     apiBase: resolveApiBase(),
-    avatarProvider: readMetaContent("apollo-avatar-provider") || "PersonaLive",
-    avatarDemoUrl: readMetaContent("apollo-avatar-demo-url")
+    avatarProvider: readMetaContent("apollo-avatar-provider") || "Pipecat + MuseTalk",
+    avatarDemoUrl: readMetaContent("apollo-avatar-demo-url"),
+    avatarPosterUrl: readMetaContent("apollo-avatar-poster-url")
 };
 
 const state = {
@@ -105,10 +116,22 @@ const state = {
     currentField: null,
     submittedAt: null,
     avatar: null,
+    avatarMode: "idle",
     microphonePermission: "idle",
     microphoneError: "",
     speechRequestId: 0,
-    speechObjectUrl: ""
+    speechObjectUrl: "",
+    voiceRecorder: null,
+    voiceStream: null,
+    voiceChunks: [],
+    voiceAnalyser: null,
+    voiceAudioContext: null,
+    voiceRaf: 0,
+    voiceSpeechDetected: false,
+    voiceLastSignalAt: 0,
+    voiceStartedAt: 0,
+    voiceMimeType: "",
+    transcript: ""
 };
 
 const elements = {
@@ -130,6 +153,8 @@ const elements = {
     videoCard: document.getElementById("videoCard"),
     videoModal: document.getElementById("videoModal"),
     videoFrame: document.getElementById("videoFrame"),
+    avatarCore: document.getElementById("avatarCore"),
+    avatarPortrait: document.getElementById("avatarPortrait"),
     avatarVideo: document.getElementById("avatarVideo"),
     avatarAudio: document.getElementById("avatarAudio"),
     avatarDemoPanel: document.getElementById("avatarDemoPanel"),
@@ -141,9 +166,11 @@ function init() {
     initHeroSlider();
     initWidget();
     initVideoModal();
+    bindAvatarAudioEvents();
     syncLeadProgress();
     syncAvatarDemo();
-    syncAvatarStatus();
+    syncAvatarMedia();
+    setAvatarMode("idle");
     openWidget();
     window.setTimeout(() => {
         requestMicrophoneAccess();
@@ -189,6 +216,249 @@ async function requestMicrophoneAccess(force = false) {
         state.microphonePermission = "denied";
         state.microphoneError = error?.name || "unknown";
         syncAvatarStatus();
+    }
+}
+
+function bindAvatarAudioEvents() {
+    elements.avatarAudio?.addEventListener("play", () => setAvatarMode("speaking"));
+    elements.avatarAudio?.addEventListener("ended", () => setAvatarMode("idle"));
+    elements.avatarAudio?.addEventListener("pause", () => {
+        if (state.avatarMode === "speaking") {
+            setAvatarMode("idle");
+        }
+    });
+}
+
+function setAvatarMode(mode) {
+    state.avatarMode = mode;
+    elements.widget?.setAttribute("data-avatar-mode", mode);
+    elements.avatarCore?.setAttribute("data-avatar-mode", mode);
+    syncAvatarStatus();
+}
+
+function pickVoiceMimeType() {
+    if (typeof MediaRecorder === "undefined") {
+        return "";
+    }
+
+    for (const type of VOICE_MIME_CANDIDATES) {
+        if (!MediaRecorder.isTypeSupported || MediaRecorder.isTypeSupported(type)) {
+            return type;
+        }
+    }
+
+    return "";
+}
+
+async function handleAvatarCoreInteraction() {
+    if (state.pending) {
+        return;
+    }
+
+    if (state.voiceRecorder?.state === "recording") {
+        stopVoiceCapture();
+        return;
+    }
+
+    if (state.avatarMode === "speaking" && elements.avatarAudio && !elements.avatarAudio.paused) {
+        elements.avatarAudio.pause();
+        elements.avatarAudio.currentTime = 0;
+        setAvatarMode("idle");
+        return;
+    }
+
+    await startVoiceCapture();
+}
+
+async function startVoiceCapture() {
+    await ensureSession();
+
+    if (state.microphonePermission !== "granted") {
+        await requestMicrophoneAccess(true);
+        if (state.microphonePermission !== "granted") {
+            return;
+        }
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        state.microphonePermission = "unsupported";
+        syncAvatarStatus();
+        return;
+    }
+
+    cleanupVoiceCapture();
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+        }
+    });
+
+    const mimeType = pickVoiceMimeType();
+    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    const chunks = [];
+
+    state.voiceStream = stream;
+    state.voiceRecorder = recorder;
+    state.voiceChunks = chunks;
+    state.voiceMimeType = mimeType || recorder.mimeType || "audio/webm";
+    state.voiceSpeechDetected = false;
+    state.voiceStartedAt = Date.now();
+    state.voiceLastSignalAt = Date.now();
+
+    recorder.addEventListener("dataavailable", (event) => {
+        if (event.data && event.data.size) {
+            chunks.push(event.data);
+        }
+    });
+
+    recorder.addEventListener("stop", async () => {
+        const blob = chunks.length ? new Blob(chunks, { type: state.voiceMimeType || "audio/webm" }) : null;
+        const hadSpeech = state.voiceSpeechDetected;
+        cleanupVoiceCapture();
+
+        if (!blob || !blob.size || !hadSpeech) {
+            setAvatarMode("idle");
+            return;
+        }
+
+        await transcribeSpeechBlob(blob);
+    });
+
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+            const audioContext = new AudioCtx();
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+            const source = audioContext.createMediaStreamSource(stream);
+            source.connect(analyser);
+            state.voiceAudioContext = audioContext;
+            state.voiceAnalyser = analyser;
+            monitorVoiceCapture();
+        }
+    } catch (error) {
+        console.warn("Voice analyser unavailable", error);
+    }
+
+    recorder.start(250);
+    setAvatarMode("listening");
+}
+
+function monitorVoiceCapture() {
+    if (!state.voiceRecorder || state.voiceRecorder.state !== "recording" || !state.voiceAnalyser) {
+        return;
+    }
+
+    const now = Date.now();
+    const sample = new Uint8Array(state.voiceAnalyser.fftSize);
+    state.voiceAnalyser.getByteTimeDomainData(sample);
+
+    let peak = 0;
+    for (let i = 0; i < sample.length; i += 1) {
+        const distance = Math.abs(sample[i] - 128);
+        if (distance > peak) {
+            peak = distance;
+        }
+    }
+
+    if (peak >= VOICE_ACTIVITY_THRESHOLD) {
+        state.voiceSpeechDetected = true;
+        state.voiceLastSignalAt = now;
+    }
+
+    const elapsed = now - state.voiceStartedAt;
+    const silence = now - state.voiceLastSignalAt;
+
+    if (elapsed >= VOICE_CAPTURE_MAX_MS || (state.voiceSpeechDetected && silence >= VOICE_SILENCE_MS && elapsed >= 1200)) {
+        stopVoiceCapture();
+        return;
+    }
+
+    state.voiceRaf = window.requestAnimationFrame(monitorVoiceCapture);
+}
+
+function stopVoiceCapture() {
+    if (state.voiceRecorder?.state === "recording") {
+        state.voiceRecorder.stop();
+    }
+}
+
+function cleanupVoiceCapture() {
+    if (state.voiceRaf) {
+        window.cancelAnimationFrame(state.voiceRaf);
+        state.voiceRaf = 0;
+    }
+
+    if (state.voiceStream) {
+        state.voiceStream.getTracks().forEach((track) => track.stop());
+        state.voiceStream = null;
+    }
+
+    if (state.voiceAudioContext) {
+        state.voiceAudioContext.close().catch(() => undefined);
+        state.voiceAudioContext = null;
+    }
+
+    state.voiceRecorder = null;
+    state.voiceAnalyser = null;
+    state.voiceChunks = [];
+}
+
+async function transcribeSpeechBlob(blob) {
+    if (!runtime.apiBase) {
+        setAvatarMode("idle");
+        return;
+    }
+
+    setAvatarMode("thinking");
+    setPending(true);
+
+    try {
+        const formData = new FormData();
+        const extension = (blob.type || "").includes("ogg") ? "ogg" : "webm";
+        const file = new File([blob], `voice-${Date.now()}.${extension}`, {
+            type: blob.type || "audio/webm"
+        });
+
+        formData.set("audio", file);
+        formData.set("language", "kk");
+
+        const result = await fetchJson(`${runtime.apiBase}${TRANSCRIBE_ENDPOINT}`, {
+            method: "POST",
+            body: formData
+        });
+
+        const text = String(result.text || "").trim();
+        state.transcript = text;
+
+        if (!text) {
+            setAvatarMode("idle");
+            return;
+        }
+
+        addUserMessage(text);
+
+        const payload = state.usingLocalFallback
+            ? runLocalFallbackChat(text)
+            : await fetchJson(`${runtime.apiBase}${CHAT_ENDPOINT}`, {
+                method: "POST",
+                body: JSON.stringify({
+                    sessionId: state.sessionId,
+                    message: text,
+                    clientState: exportClientState()
+                })
+            });
+
+        applyAssistantPayload(payload);
+    } catch (error) {
+        console.error("Voice pipeline failed", error);
+        addAssistantMessage("Не получилось обработать голос. Попробуйте ещё раз.");
+        setAvatarMode("idle");
+    } finally {
+        setPending(false);
     }
 }
 function readMetaContent(name) {
@@ -278,6 +548,25 @@ function initWidget() {
     });
 
     elements.widgetInput?.addEventListener("input", autoResizeTextarea);
+
+    elements.avatarCore?.addEventListener("click", () => {
+        handleAvatarCoreInteraction().catch((error) => {
+            console.error("Avatar interaction failed", error);
+            setAvatarMode("idle");
+        });
+    });
+
+    elements.avatarCore?.addEventListener("keydown", (event) => {
+        if (!["Enter", " ", "Spacebar"].includes(event.key)) {
+            return;
+        }
+
+        event.preventDefault();
+        handleAvatarCoreInteraction().catch((error) => {
+            console.error("Avatar interaction failed", error);
+            setAvatarMode("idle");
+        });
+    });
 
     elements.quickActions?.addEventListener("click", (event) => {
         const target = event.target.closest("[data-quick-action]");
@@ -393,7 +682,7 @@ function buildGreetingMessages() {
 
     return [
         `Сәлем! Я AI-ассистент ${runtime.publicBrand}. Помогу быстро записать ребёнка на кастинг и отвечу на основные вопросы.`,
-        `Напишите сообщение, и я проведу вас по анкете. Дальше заявка автоматически уйдёт менеджеру в Telegram, а живой аватар подключается через ${runtime.avatarProvider}.`
+        `Нажмите на аватар и говорите. Я проведу вас по анкете, а дальше заявка автоматически уйдёт менеджеру в Telegram.`
     ];
 }
 
@@ -783,8 +1072,18 @@ function syncAvatarStatus(delivery) {
         return;
     }
 
-    if (state.pending) {
-        elements.avatarStatusText.textContent = "Слушаю и готовлю ответ...";
+    if (state.avatarMode === "listening") {
+        elements.avatarStatusText.textContent = "Слушаю. Говорите свободно.";
+        return;
+    }
+
+    if (state.avatarMode === "thinking" || state.pending) {
+        elements.avatarStatusText.textContent = "Думаю и готовлю ответ...";
+        return;
+    }
+
+    if (state.avatarMode === "speaking") {
+        elements.avatarStatusText.textContent = "Отвечаю голосом.";
         return;
     }
 
@@ -793,9 +1092,8 @@ function syncAvatarStatus(delivery) {
         return;
     }
 
-    elements.avatarStatusText.textContent = "Онлайн. Жду клиента. Микрофон готов к разговору.";
+    elements.avatarStatusText.textContent = "Онлайн. Нажмите на аватар и говорите.";
 }
-
 function syncAssistantMedia(payload) {
     if (!payload) {
         return;
@@ -849,12 +1147,27 @@ function syncAvatarDemo(avatar = state.avatar) {
 function syncAvatarMedia(avatar) {
     syncAvatarDemo(avatar);
 
+    const posterUrl = avatar?.posterUrl || runtime.avatarPosterUrl || "";
+
+    if (elements.avatarPortrait) {
+        if (posterUrl) {
+            elements.avatarPortrait.src = posterUrl;
+            elements.avatarPortrait.hidden = false;
+            elements.avatarPortrait.classList.add("is-visible");
+            elements.avatarCore?.classList.add("has-portrait");
+        } else {
+            elements.avatarPortrait.hidden = true;
+            elements.avatarPortrait.classList.remove("is-visible");
+            elements.avatarCore?.classList.remove("has-portrait");
+        }
+    }
+
     if (!avatar) {
         return;
     }
 
-    if (elements.avatarVideo && avatar.posterUrl) {
-        elements.avatarVideo.poster = avatar.posterUrl;
+    if (elements.avatarVideo && posterUrl) {
+        elements.avatarVideo.poster = posterUrl;
     }
 
     const videoUrl = avatar.videoUrl || avatar.previewUrl || avatar.streamUrl || "";
@@ -864,7 +1177,6 @@ function syncAvatarMedia(avatar) {
         elements.avatarVideo.play().catch(() => undefined);
     }
 }
-
 function syncSpeechMedia(speech) {
     const audioUrl = speech?.audioUrl || speech?.streamUrl || "";
     if (!elements.avatarAudio || !audioUrl) {
@@ -878,9 +1190,9 @@ function syncSpeechMedia(speech) {
     releaseSpeechObjectUrl(audioUrl);
     elements.avatarAudio.dataset.mediaUrl = audioUrl;
     elements.avatarAudio.src = audioUrl;
+    setAvatarMode("speaking");
     elements.avatarAudio.play().catch(() => undefined);
 }
-
 async function requestGeneratedSpeech(text, speech = {}) {
     if (!text || state.usingLocalFallback || !runtime.apiBase || speech.enabled === false) {
         return;
@@ -892,6 +1204,7 @@ async function requestGeneratedSpeech(text, speech = {}) {
     }
 
     const requestId = ++state.speechRequestId;
+    setAvatarMode("thinking");
 
     try {
         const response = await fetch(`${runtime.apiBase}${speech.endpoint || TTS_ENDPOINT}`, {
@@ -921,9 +1234,9 @@ async function requestGeneratedSpeech(text, speech = {}) {
         playSpeechBlob(blob);
     } catch (error) {
         console.error("TTS request failed", error);
+        setAvatarMode("idle");
     }
 }
-
 function playSpeechBlob(blob) {
     if (!elements.avatarAudio) {
         return;
@@ -934,9 +1247,9 @@ function playSpeechBlob(blob) {
     state.speechObjectUrl = objectUrl;
     elements.avatarAudio.dataset.mediaUrl = objectUrl;
     elements.avatarAudio.src = objectUrl;
+    setAvatarMode("speaking");
     elements.avatarAudio.play().catch(() => undefined);
 }
-
 function releaseSpeechObjectUrl(nextUrl = "") {
     if (state.speechObjectUrl && state.speechObjectUrl != nextUrl) {
         URL.revokeObjectURL(state.speechObjectUrl);
@@ -1023,4 +1336,5 @@ function normalize(text) {
 }
 
 init();
+
 

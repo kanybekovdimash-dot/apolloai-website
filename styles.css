@@ -905,12 +905,21 @@ a {
     place-items: center;
     border-radius: 50%;
     overflow: hidden;
+    cursor: pointer;
+    isolation: isolate;
     background:
         radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.24), transparent 30%),
         radial-gradient(circle at 70% 70%, rgba(185, 148, 87, 0.28), transparent 34%),
         #111111;
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: inset 0 0 40px rgba(255, 255, 255, 0.03);
+    transition: transform 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease;
+}
+
+.avatar-stage__core:focus-visible {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.34);
+    box-shadow: 0 0 0 3px rgba(185, 148, 87, 0.2), inset 0 0 40px rgba(255, 255, 255, 0.05);
 }
 
 .avatar-stage__ring {
@@ -938,12 +947,34 @@ a {
 }
 
 .avatar-stage__core video,
-.avatar-stage__core audio {
+.avatar-stage__core audio,
+.avatar-stage__portrait {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.avatar-stage__portrait {
+    z-index: 1;
+    opacity: 0;
+    transform: scale(1.02);
+    transition: opacity 0.24s ease, transform 0.24s ease;
+}
+
+.avatar-stage__portrait.is-visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.avatar-stage__core.has-portrait .avatar-stage__logo {
+    opacity: 0;
+    transform: scale(0.92);
+}
+
+.avatar-stage__core.has-portrait::after {
+    opacity: 0.22;
 }
 
 .avatar-stage__badge {
@@ -967,6 +998,53 @@ a {
     background: #35dc8d;
     box-shadow: 0 0 12px rgba(53, 220, 141, 0.8);
     flex-shrink: 0;
+}
+
+.casting-widget[data-avatar-mode="listening"] .avatar-stage__core {
+    transform: scale(1.03);
+    border-color: rgba(72, 216, 255, 0.72);
+    box-shadow: 0 0 0 6px rgba(72, 216, 255, 0.12), inset 0 0 44px rgba(72, 216, 255, 0.12);
+}
+
+.casting-widget[data-avatar-mode="listening"] .avatar-stage__ring {
+    border-color: rgba(72, 216, 255, 0.42);
+    animation-duration: 2s;
+}
+
+.casting-widget[data-avatar-mode="listening"] .avatar-stage__dot {
+    background: #48d8ff;
+    box-shadow: 0 0 14px rgba(72, 216, 255, 0.92);
+}
+
+.casting-widget[data-avatar-mode="thinking"] .avatar-stage__core {
+    border-color: rgba(215, 177, 103, 0.8);
+    box-shadow: 0 0 0 6px rgba(215, 177, 103, 0.12), inset 0 0 44px rgba(215, 177, 103, 0.14);
+}
+
+.casting-widget[data-avatar-mode="thinking"] .avatar-stage__ring {
+    border-color: rgba(215, 177, 103, 0.46);
+    animation-duration: 1.4s;
+}
+
+.casting-widget[data-avatar-mode="thinking"] .avatar-stage__dot {
+    background: #d7b167;
+    box-shadow: 0 0 14px rgba(215, 177, 103, 0.94);
+}
+
+.casting-widget[data-avatar-mode="speaking"] .avatar-stage__core {
+    transform: scale(1.035);
+    border-color: rgba(214, 112, 255, 0.78);
+    box-shadow: 0 0 0 7px rgba(214, 112, 255, 0.12), inset 0 0 48px rgba(214, 112, 255, 0.16);
+}
+
+.casting-widget[data-avatar-mode="speaking"] .avatar-stage__ring {
+    border-color: rgba(214, 112, 255, 0.44);
+    animation-duration: 1.15s;
+}
+
+.casting-widget[data-avatar-mode="speaking"] .avatar-stage__dot {
+    background: #d670ff;
+    box-shadow: 0 0 14px rgba(214, 112, 255, 0.94);
 }
 
 .casting-widget__intro {

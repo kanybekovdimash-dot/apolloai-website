@@ -12,3 +12,9 @@ wrangler.toml
 .dev.vars.example
 .vite/
 .playwright-cli/
+
+!local-worker/
+!local-worker/**
+local-worker/.dev.vars
+local-worker/.cloudflare.env
+local-worker/.wrangler/

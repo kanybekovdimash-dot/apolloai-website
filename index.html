@@ -11,8 +11,9 @@
     <meta name="apollo-public-brand" content="Meyram Cinema">
     <meta name="apollo-assistant-brand" content="Meyram AI">
     <meta name="apollo-api-base" content="https://apolloai-meyram-api.kanybekovdimash.workers.dev">
-    <meta name="apollo-avatar-provider" content="PersonaLive">
-    <meta name="apollo-avatar-demo-url" content="https://nerve-list-contributions-southeast.trycloudflare.com">
+    <meta name="apollo-avatar-provider" content="Pipecat + MuseTalk">
+    <meta name="apollo-avatar-demo-url" content="">
+    <meta name="apollo-avatar-poster-url" content="">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -300,7 +301,7 @@
         <div class="casting-widget__hero casting-widget__hero--dock">
             <div class="avatar-stage">
                 <div class="avatar-stage__ring"></div>
-                <div class="avatar-stage__core">
+                <div class="avatar-stage__core" id="avatarCore" role="button" tabindex="0" aria-label="Говорить с ассистентом">
                     <div class="avatar-stage__demo" id="avatarDemoPanel" hidden>
                         <iframe
                             id="avatarDemoFrame"
@@ -312,6 +313,7 @@
                             allowfullscreen
                         ></iframe>
                     </div>
+                    <img class="avatar-stage__portrait" id="avatarPortrait" src="" alt="AI avatar portrait" hidden>
                     <img class="avatar-stage__logo" src="https://meyram.agency/themes/meyram/assets/img/logo.svg" alt="meyram киностудио">
                     <video id="avatarVideo" autoplay loop playsinline muted poster="https://meyram.agency/themes/meyram/assets/img/logo.svg"></video>
                     <audio id="avatarAudio" autoplay></audio>
@@ -347,4 +349,5 @@
     <script type="module" src="/app.js"></script>
 </body>
 </html>
+
 

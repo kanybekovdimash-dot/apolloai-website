@@ -1,0 +1,26 @@
+name = "apolloai-meyram-api"
+main = "worker.js"
+account_id = "412db0cf9cffd7b9e634b190bcbf5fed"
+compatibility_date = "2026-03-13"
+workers_dev = true
+
+[dev]
+port = 8787
+local_protocol = "http"
+
+[vars]
+PUBLIC_BRAND = "Meyram Cinema"
+ASSISTANT_BRAND = "Meyram AI"
+AVATAR_PROVIDER = "Pipecat + MuseTalk"
+CHAT_PROVIDER = "gemini"
+CHAT_MODEL = "gemini-3-flash-preview"
+GEMINI_CHAT_MODEL = "gemini-3-flash-preview"
+STT_PROVIDER = "groq"
+STT_MODEL = "whisper-large-v3"
+TTS_PROVIDER = "yandex"
+AZURE_TTS_VOICE = "kk-KZ-AigulNeural"
+AZURE_TTS_FORMAT = "audio-24khz-48kbitrate-mono-mp3"
+YANDEX_TTS_VOICE = "amira"
+YANDEX_TTS_FORMAT = "mp3"
+YANDEX_TTS_LANG = "kk-KZ"
+RUNPOD_BASE_URL = ""
