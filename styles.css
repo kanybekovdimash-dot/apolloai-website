@@ -1336,9 +1336,6 @@ a {
 }
 
 @media (max-width: 640px) {
-    .casting-widget__live-demo-frame {
-        height: 240px;
-    }
     .brandmark__glyph {
         width: 62px;
         height: 46px;
@@ -1897,41 +1894,3 @@ a {
 }
 /* meyram-top-override:end */
 
-
-.casting-widget__live-demo {
-    margin: 18px 22px 0;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 22px;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.casting-widget__live-demo-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.casting-widget__live-demo-head span {
-    color: #ffffff;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-}
-
-.casting-widget__live-demo-head a {
-    color: rgba(255, 255, 255, 0.78);
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.casting-widget__live-demo-frame {
-    width: 100%;
-    height: 320px;
-    border: 0;
-    background: #0a0a0a;
-}

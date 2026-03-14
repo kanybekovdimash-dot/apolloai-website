@@ -86,7 +86,7 @@ const runtime = {
     publicBrand: readMetaContent("apollo-public-brand") || "Meyram Cinema",
     assistantBrand: readMetaContent("apollo-assistant-brand") || "Meyram AI",
     apiBase: resolveApiBase(),
-    avatarProvider: readMetaContent("apollo-avatar-provider") || "FasterLivePortrait",
+    avatarProvider: readMetaContent("apollo-avatar-provider") || "PersonaLive",
     avatarDemoUrl: readMetaContent("apollo-avatar-demo-url")
 };
 
@@ -890,3 +890,4 @@ function normalize(text) {
 }
 
 init();
+
