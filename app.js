@@ -131,7 +131,9 @@ const state = {
     voiceLastSignalAt: 0,
     voiceStartedAt: 0,
     voiceMimeType: "",
-    transcript: ""
+    transcript: "",
+    initialGreetingSpoken: false,
+    initialGreetingText: ""
 };
 
 const elements = {
@@ -212,11 +214,29 @@ async function requestMicrophoneAccess(force = false) {
         stream.getTracks().forEach((track) => track.stop());
         state.microphonePermission = "granted";
         syncAvatarStatus();
+        maybeSpeakInitialGreeting();
     } catch (error) {
         state.microphonePermission = "denied";
         state.microphoneError = error?.name || "unknown";
         syncAvatarStatus();
     }
+}
+
+function maybeSpeakInitialGreeting() {
+    if (state.initialGreetingSpoken || !state.initialGreetingText || !runtime.apiBase) {
+        return;
+    }
+
+    if (state.microphonePermission !== "granted") {
+        return;
+    }
+
+    state.initialGreetingSpoken = true;
+    requestGeneratedSpeech(state.initialGreetingText).catch((error) => {
+        console.error("Initial greeting speech failed", error);
+        state.initialGreetingSpoken = false;
+        setAvatarMode("idle");
+    });
 }
 
 function bindAvatarAudioEvents() {
@@ -608,7 +628,9 @@ async function openWidget() {
     if (!state.initializedChat) {
         const greeting = buildGreetingMessages();
         greeting.forEach((line) => addAssistantMessage(line));
+        state.initialGreetingText = greeting[0] || "";
         state.initializedChat = true;
+        maybeSpeakInitialGreeting();
     }
 
     window.setTimeout(() => elements.widgetInput?.focus(), 80);
