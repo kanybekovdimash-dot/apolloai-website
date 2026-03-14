@@ -86,7 +86,8 @@ const runtime = {
     publicBrand: readMetaContent("apollo-public-brand") || "Meyram Cinema",
     assistantBrand: readMetaContent("apollo-assistant-brand") || "Meyram AI",
     apiBase: resolveApiBase(),
-    avatarProvider: readMetaContent("apollo-avatar-provider") || "FasterLivePortrait"
+    avatarProvider: readMetaContent("apollo-avatar-provider") || "FasterLivePortrait",
+    avatarDemoUrl: readMetaContent("apollo-avatar-demo-url")
 };
 
 const state = {
@@ -125,7 +126,10 @@ const elements = {
     videoModal: document.getElementById("videoModal"),
     videoFrame: document.getElementById("videoFrame"),
     avatarVideo: document.getElementById("avatarVideo"),
-    avatarAudio: document.getElementById("avatarAudio")
+    avatarAudio: document.getElementById("avatarAudio"),
+    avatarDemoPanel: document.getElementById("avatarDemoPanel"),
+    avatarDemoFrame: document.getElementById("avatarDemoFrame"),
+    avatarDemoLink: document.getElementById("avatarDemoLink")
 };
 
 function init() {
@@ -133,6 +137,7 @@ function init() {
     initWidget();
     initVideoModal();
     syncLeadProgress();
+    syncAvatarDemo();
     syncAvatarStatus();
 }
 
@@ -717,6 +722,11 @@ function syncAvatarStatus(delivery) {
         return;
     }
 
+    if (resolveAvatarDemoUrl()) {
+        elements.avatarStatusText.textContent = "Онлайн. Live-аватар подключён через RunPod demo.";
+        return;
+    }
+
     if (state.avatar?.enabled) {
         elements.avatarStatusText.textContent = "Онлайн. Живой аватар подключён к кастинг-скрипту.";
         return;
@@ -739,7 +749,37 @@ function syncAssistantMedia(payload) {
     }
 }
 
+function resolveAvatarDemoUrl(avatar = state.avatar) {
+    return avatar?.demoUrl || avatar?.embedUrl || avatar?.frameUrl || runtime.avatarDemoUrl || "";
+}
+
+function syncAvatarDemo(avatar = state.avatar) {
+    if (!elements.avatarDemoPanel || !elements.avatarDemoFrame || !elements.avatarDemoLink) {
+        return;
+    }
+
+    const demoUrl = resolveAvatarDemoUrl(avatar);
+    if (!demoUrl) {
+        elements.avatarDemoPanel.hidden = true;
+        elements.avatarDemoLink.href = "#";
+        if (elements.avatarDemoFrame.dataset.mediaUrl) {
+            elements.avatarDemoFrame.dataset.mediaUrl = "";
+            elements.avatarDemoFrame.src = "";
+        }
+        return;
+    }
+
+    elements.avatarDemoPanel.hidden = false;
+    elements.avatarDemoLink.href = demoUrl;
+    if (elements.avatarDemoFrame.dataset.mediaUrl !== demoUrl) {
+        elements.avatarDemoFrame.dataset.mediaUrl = demoUrl;
+        elements.avatarDemoFrame.src = demoUrl;
+    }
+}
+
 function syncAvatarMedia(avatar) {
+    syncAvatarDemo(avatar);
+
     if (!avatar) {
         return;
     }
