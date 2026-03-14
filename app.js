@@ -886,8 +886,8 @@ async function requestGeneratedSpeech(text, speech = {}) {
         return;
     }
 
-    const provider = (speech.provider || "azure").toLowerCase();
-    if (provider !== "azure") {
+    const provider = (speech.provider || "yandex").toLowerCase();
+    if (!["azure", "yandex"].includes(provider)) {
         return;
     }
 
@@ -902,6 +902,7 @@ async function requestGeneratedSpeech(text, speech = {}) {
             },
             body: JSON.stringify({
                 text,
+                provider,
                 voice: speech.voice,
                 format: speech.format
             })
