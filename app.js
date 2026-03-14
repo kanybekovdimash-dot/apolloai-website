@@ -3,6 +3,7 @@ const HERO_AUTOPLAY_MS = 5000;
 const SESSION_ENDPOINT = "/session";
 const CHAT_ENDPOINT = "/chat";
 const LEAD_ENDPOINT = "/lead";
+const TTS_ENDPOINT = "/tts";
 
 const FIELD_DEFINITIONS = [
     {
@@ -105,7 +106,9 @@ const state = {
     submittedAt: null,
     avatar: null,
     microphonePermission: "idle",
-    microphoneError: ""
+    microphoneError: "",
+    speechRequestId: 0,
+    speechObjectUrl: ""
 };
 
 const elements = {
@@ -802,8 +805,16 @@ function syncAssistantMedia(payload) {
         syncAvatarMedia(payload.avatar);
     }
 
-    if (payload.speech || payload.audio) {
-        syncSpeechMedia(payload.speech || payload.audio);
+    const speech = payload.speech || payload.audio;
+    if (speech) {
+        syncSpeechMedia(speech);
+        if (speech.audioUrl || speech.streamUrl) {
+            return;
+        }
+    }
+
+    if (typeof payload.reply === "string" && payload.reply.trim()) {
+        requestGeneratedSpeech(payload.reply.trim(), speech || {});
     }
 }
 
@@ -864,9 +875,72 @@ function syncSpeechMedia(speech) {
         return;
     }
 
+    releaseSpeechObjectUrl(audioUrl);
     elements.avatarAudio.dataset.mediaUrl = audioUrl;
     elements.avatarAudio.src = audioUrl;
     elements.avatarAudio.play().catch(() => undefined);
+}
+
+async function requestGeneratedSpeech(text, speech = {}) {
+    if (!text || state.usingLocalFallback || !runtime.apiBase || speech.enabled === false) {
+        return;
+    }
+
+    const provider = (speech.provider || "azure").toLowerCase();
+    if (provider !== "azure") {
+        return;
+    }
+
+    const requestId = ++state.speechRequestId;
+
+    try {
+        const response = await fetch(`${runtime.apiBase}${speech.endpoint || TTS_ENDPOINT}`, {
+            method: "POST",
+            headers: {
+                Accept: "audio/mpeg, audio/*, application/json",
+                "Content-Type": "application/json; charset=utf-8"
+            },
+            body: JSON.stringify({
+                text,
+                voice: speech.voice,
+                format: speech.format
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || `TTS request failed with status ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        if (!blob.size || requestId != state.speechRequestId) {
+            return;
+        }
+
+        playSpeechBlob(blob);
+    } catch (error) {
+        console.error("TTS request failed", error);
+    }
+}
+
+function playSpeechBlob(blob) {
+    if (!elements.avatarAudio) {
+        return;
+    }
+
+    releaseSpeechObjectUrl();
+    const objectUrl = URL.createObjectURL(blob);
+    state.speechObjectUrl = objectUrl;
+    elements.avatarAudio.dataset.mediaUrl = objectUrl;
+    elements.avatarAudio.src = objectUrl;
+    elements.avatarAudio.play().catch(() => undefined);
+}
+
+function releaseSpeechObjectUrl(nextUrl = "") {
+    if (state.speechObjectUrl && state.speechObjectUrl != nextUrl) {
+        URL.revokeObjectURL(state.speechObjectUrl);
+        state.speechObjectUrl = "";
+    }
 }
 
 function setPending(isPending) {
