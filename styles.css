@@ -1990,12 +1990,12 @@ a {
 
 .avatar-stage__demo iframe {
     position: absolute;
-    top: -136px;
-    left: -510px;
-    width: 1180px;
+    top: -118px;
+    left: -16px;
+    width: 980px;
     height: 900px;
     border: 0;
-    transform: scale(0.46);
+    transform: scale(0.93);
     transform-origin: top left;
     background: #050505;
 }
@@ -2029,11 +2029,11 @@ a {
 
 @media (max-width: 900px) {
     .avatar-stage__demo iframe {
-        top: -134px;
-        left: -546px;
-        width: 1180px;
+        top: -126px;
+        left: -18px;
+        width: 980px;
         height: 900px;
-        transform: scale(0.4);
+        transform: scale(0.72);
     }
 
     .avatar-stage__demo::before {
@@ -2044,3 +2044,4 @@ a {
         height: 38px;
     }
 }
+
