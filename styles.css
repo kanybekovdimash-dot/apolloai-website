@@ -143,7 +143,7 @@ a {
 
 .brandmark--compact .brandmark__glyph {
     width: 58px;
-    height: 46px;
+    height: 14px;
     font-size: 3rem;
 }
 
@@ -1338,7 +1338,7 @@ a {
 @media (max-width: 640px) {
     .brandmark__glyph {
         width: 62px;
-        height: 46px;
+        height: 14px;
         font-size: 3.2rem;
     }
 
@@ -1368,8 +1368,8 @@ a {
     }
 
     .hero-arrow {
-        width: 38px;
-        height: 38px;
+        width: 10px;
+        height: 10px;
     }
 
     .hero-arrow--prev {
@@ -1850,8 +1850,8 @@ a {
 
     .hero-arrow {
         top: 50%;
-        width: 38px;
-        height: 38px;
+        width: 10px;
+        height: 10px;
         transform: translateY(-50%);
     }
 
@@ -1990,14 +1990,15 @@ a {
 
 .avatar-stage__demo iframe {
     position: absolute;
-    top: -118px;
-    left: -16px;
+    top: -56px;
+    left: -256px;
     width: 980px;
     height: 900px;
     border: 0;
-    transform: scale(0.93);
+    transform: scale(0.72);
     transform-origin: top left;
     background: #050505;
+    pointer-events: none;
 }
 
 .avatar-stage__demo::before,
@@ -2010,14 +2011,14 @@ a {
 
 .avatar-stage__demo::before {
     inset: auto auto 0 0;
-    width: 56px;
+    width: 14px;
     height: 100%;
     background: linear-gradient(90deg, rgba(5, 5, 5, 0.98), rgba(5, 5, 5, 0));
 }
 
 .avatar-stage__demo::after {
     inset: auto 0 0 0;
-    height: 46px;
+    height: 14px;
     background: linear-gradient(180deg, rgba(5, 5, 5, 0), rgba(5, 5, 5, 0.98));
 }
 
@@ -2029,19 +2030,21 @@ a {
 
 @media (max-width: 900px) {
     .avatar-stage__demo iframe {
-        top: -126px;
-        left: -18px;
+        top: -42px;
+        left: -186px;
         width: 980px;
         height: 900px;
-        transform: scale(0.72);
+        transform: scale(0.52);
     }
 
     .avatar-stage__demo::before {
-        width: 38px;
+        width: 10px;
     }
 
     .avatar-stage__demo::after {
-        height: 38px;
+        height: 10px;
     }
 }
+
+
 
