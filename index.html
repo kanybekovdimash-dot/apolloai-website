@@ -12,6 +12,7 @@
     <meta name="apollo-assistant-brand" content="Meyram AI">
     <meta name="apollo-api-base" content="https://apolloai-meyram-api.kanybekovdimash.workers.dev">
     <meta name="apollo-avatar-provider" content="PersonaLive">
+    <meta name="apollo-avatar-demo-url" content="https://nerve-list-contributions-southeast.trycloudflare.com">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -300,9 +301,21 @@
             <div class="avatar-stage">
                 <div class="avatar-stage__ring"></div>
                 <div class="avatar-stage__core">
+                    <div class="avatar-stage__demo" id="avatarDemoPanel" hidden>
+                        <iframe
+                            id="avatarDemoFrame"
+                            src=""
+                            title="PersonaLive avatar"
+                            loading="eager"
+                            referrerpolicy="no-referrer"
+                            allow="camera; microphone; autoplay; clipboard-read; clipboard-write"
+                            allowfullscreen
+                        ></iframe>
+                    </div>
                     <img class="avatar-stage__logo" src="https://meyram.agency/themes/meyram/assets/img/logo.svg" alt="meyram киностудио">
                     <video id="avatarVideo" autoplay loop playsinline muted poster="https://meyram.agency/themes/meyram/assets/img/logo.svg"></video>
                     <audio id="avatarAudio" autoplay></audio>
+                    <a id="avatarDemoLink" href="#" target="_blank" rel="noreferrer" hidden>Open avatar demo</a>
                 </div>
                 <div class="avatar-stage__badge">
                     <span class="avatar-stage__dot"></span>
