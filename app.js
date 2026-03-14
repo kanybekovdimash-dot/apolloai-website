@@ -6,8 +6,8 @@ const LEAD_ENDPOINT = "/lead";
 const TTS_ENDPOINT = "/tts";
 const TRANSCRIBE_ENDPOINT = "/transcribe";
 const VOICE_CAPTURE_MAX_MS = 12000;
-const VOICE_SILENCE_MS = 1400;
-const VOICE_ACTIVITY_THRESHOLD = 11;
+const VOICE_SILENCE_MS = 1800;
+const VOICE_ACTIVITY_THRESHOLD = 6;
 const VOICE_MIME_CANDIDATES = [
     "audio/webm;codecs=opus",
     "audio/webm",
@@ -216,7 +216,7 @@ async function requestMicrophoneAccess(force = false) {
             }
         });
 
-        stream.getTracks().forEach((track) => track.stop());
+        state.voiceStream = stream;
         state.microphonePermission = "granted";
         syncAvatarStatus();
         maybeSpeakInitialGreeting();
@@ -382,13 +382,19 @@ async function startVoiceCapture() {
 
     cleanupVoiceCapture();
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-        }
-    });
+    let stream = state.voiceStream;
+    const hasLiveTrack = stream?.getAudioTracks?.().some((track) => track.readyState === "live" && track.enabled !== false);
+
+    if (!hasLiveTrack) {
+        stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        });
+        state.voiceStream = stream;
+    }
 
     const mimeType = pickVoiceMimeType();
     const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
@@ -487,11 +493,6 @@ function cleanupVoiceCapture() {
         state.voiceRaf = 0;
     }
 
-    if (state.voiceStream) {
-        state.voiceStream.getTracks().forEach((track) => track.stop());
-        state.voiceStream = null;
-    }
-
     if (state.voiceAudioContext) {
         state.voiceAudioContext.close().catch(() => undefined);
         state.voiceAudioContext = null;
@@ -501,6 +502,19 @@ function cleanupVoiceCapture() {
     state.voiceAnalyser = null;
     state.voiceChunks = [];
 }
+
+function releaseVoiceStream() {
+    if (!state.voiceStream) {
+        return;
+    }
+
+    state.voiceStream.getTracks().forEach((track) => track.stop());
+    state.voiceStream = null;
+}
+
+window.addEventListener("beforeunload", () => {
+    releaseVoiceStream();
+});
 
 async function transcribeSpeechBlob(blob) {
     if (!runtime.apiBase) {
