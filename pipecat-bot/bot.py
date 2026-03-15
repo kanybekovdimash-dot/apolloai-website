@@ -10,6 +10,7 @@ from pipecat.transports.services.livekit import LiveKitTransport, LiveKitParams
 from pipecat.services.groq import GroqSTTService
 from pipecat.services.google import GoogleLLMService
 from yandex_tts import YandexTTSService
+from wav2lip_video import Wav2LipVideoProcessor
 
 load_dotenv()
 
@@ -32,6 +33,7 @@ async def run_bot(room_name: str):
         params=LiveKitParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
+            video_out_enabled=True,
             vad_enabled=True,
         ),
     )
@@ -54,11 +56,15 @@ async def run_bot(room_name: str):
         lang="kk-KZ",
     )
 
+    wav2lip_url = os.getenv("WAV2LIP_URL", "http://localhost:8000")
+    video = Wav2LipVideoProcessor(wav2lip_url=wav2lip_url)
+
     pipeline = Pipeline([
         transport.input(),
         stt,
         llm,
         tts,
+        video,
         transport.output(),
     ])
 
