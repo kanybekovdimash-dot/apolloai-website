@@ -489,14 +489,12 @@ async function startVoiceCapture() {
 
     recorder.addEventListener("stop", async () => {
         const blob = chunks.length ? new Blob(chunks, { type: state.voiceMimeType || "audio/webm" }) : null;
-        const hadSpeech = state.voiceSpeechDetected;
         cleanupVoiceCapture();
-        console.log("[voice] recording stopped, hadSpeech:", hadSpeech, "blobSize:", blob?.size || 0);
+        console.log("[voice] recording stopped, blobSize:", blob?.size || 0);
 
-        if (!blob || !blob.size || !hadSpeech) {
-            if (blob?.size > 50000 && !hadSpeech) {
-                console.warn("[voice] large blob discarded (VAD missed speech?), size:", blob.size);
-            }
+        // Skip only truly empty blobs; let Whisper decide if there's speech
+        if (!blob || blob.size < 1000) {
+            console.log("[voice] blob too small, restarting capture");
             setAvatarMode("idle");
             queueAutoVoiceCapture(220);
             return;
@@ -520,7 +518,8 @@ async function startVoiceCapture() {
             state.voiceAudioContext = audioContext;
             state.voiceAnalyser = analyser;
             console.log("[voice] analyser ready, audioContext state:", audioContext.state);
-            monitorVoiceCapture();
+            // Use setInterval instead of requestAnimationFrame — rAF pauses when tab/devtools loses focus
+            state.voiceMonitorInterval = window.setInterval(monitorVoiceCapture, 100);
         }
     } catch (error) {
         console.warn("Voice analyser unavailable", error);
@@ -532,46 +531,54 @@ async function startVoiceCapture() {
 }
 
 function monitorVoiceCapture() {
-    if (!state.voiceRecorder || state.voiceRecorder.state !== "recording" || !state.voiceAnalyser) {
+    if (!state.voiceRecorder || state.voiceRecorder.state !== "recording") {
         return;
     }
 
     const now = Date.now();
-    const analyser = state.voiceAnalyser;
-    const bufLen = analyser.frequencyBinCount;
-    const freqData = new Uint8Array(bufLen);
-    analyser.getByteFrequencyData(freqData);
-
-    // Calculate RMS energy from frequency data (more reliable than time domain with noiseSuppression)
-    let sum = 0;
-    for (let i = 0; i < bufLen; i++) {
-        sum += freqData[i];
-    }
-    const rms = sum / bufLen;
-
-    // Debug: log RMS every ~1 second
-    if (!state._lastVadLog || now - state._lastVadLog > 1000) {
-        console.log("[vad] rms:", rms.toFixed(1));
-        state._lastVadLog = now;
-    }
-
-    if (rms >= VOICE_ACTIVITY_THRESHOLD) {
-        if (!state.voiceSpeechDetected) {
-            console.log("[vad] speech detected, rms:", rms.toFixed(1));
-        }
-        state.voiceSpeechDetected = true;
-        state.voiceLastSignalAt = now;
-    }
-
     const elapsed = now - state.voiceStartedAt;
-    const silence = now - state.voiceLastSignalAt;
 
-    if (elapsed >= VOICE_CAPTURE_MAX_MS || (state.voiceSpeechDetected && silence >= VOICE_SILENCE_MS && elapsed >= 1200)) {
+    // Try frequency-based VAD if analyser is available
+    if (state.voiceAnalyser) {
+        const analyser = state.voiceAnalyser;
+        const bufLen = analyser.frequencyBinCount;
+        const freqData = new Uint8Array(bufLen);
+        analyser.getByteFrequencyData(freqData);
+
+        let sum = 0;
+        for (let i = 0; i < bufLen; i++) {
+            sum += freqData[i];
+        }
+        const rms = sum / bufLen;
+
+        // Debug: log RMS every ~1 second
+        if (!state._lastVadLog || now - state._lastVadLog > 1000) {
+            console.log("[vad] rms:", rms.toFixed(1), "elapsed:", (elapsed / 1000).toFixed(1) + "s");
+            state._lastVadLog = now;
+        }
+
+        if (rms >= VOICE_ACTIVITY_THRESHOLD) {
+            if (!state.voiceSpeechDetected) {
+                console.log("[vad] speech detected, rms:", rms.toFixed(1));
+            }
+            state.voiceSpeechDetected = true;
+            state.voiceLastSignalAt = now;
+        }
+
+        const silence = now - state.voiceLastSignalAt;
+        if (state.voiceSpeechDetected && silence >= VOICE_SILENCE_MS && elapsed >= 1200) {
+            console.log("[vad] silence after speech, auto-stopping");
+            stopVoiceCapture();
+            return;
+        }
+    }
+
+    // Hard max timeout — stop regardless
+    if (elapsed >= VOICE_CAPTURE_MAX_MS) {
+        console.log("[vad] max time reached, auto-stopping");
         stopVoiceCapture();
         return;
     }
-
-    state.voiceRaf = window.requestAnimationFrame(monitorVoiceCapture);
 }
 
 function stopVoiceCapture() {
@@ -581,6 +588,10 @@ function stopVoiceCapture() {
 }
 
 function cleanupVoiceCapture() {
+    if (state.voiceMonitorInterval) {
+        window.clearInterval(state.voiceMonitorInterval);
+        state.voiceMonitorInterval = 0;
+    }
     if (state.voiceRaf) {
         window.cancelAnimationFrame(state.voiceRaf);
         state.voiceRaf = 0;
