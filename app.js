@@ -494,6 +494,9 @@ async function startVoiceCapture() {
         console.log("[voice] recording stopped, hadSpeech:", hadSpeech, "blobSize:", blob?.size || 0);
 
         if (!blob || !blob.size || !hadSpeech) {
+            if (blob?.size > 50000 && !hadSpeech) {
+                console.warn("[voice] large blob discarded (VAD missed speech?), size:", blob.size);
+            }
             setAvatarMode("idle");
             queueAutoVoiceCapture(220);
             return;
@@ -506,12 +509,17 @@ async function startVoiceCapture() {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (AudioCtx) {
             const audioContext = new AudioCtx();
+            // Chrome suspends AudioContext by default — must resume for analyser to work
+            if (audioContext.state === "suspended") {
+                await audioContext.resume();
+            }
             const analyser = audioContext.createAnalyser();
             analyser.fftSize = 2048;
             const source = audioContext.createMediaStreamSource(stream);
             source.connect(analyser);
             state.voiceAudioContext = audioContext;
             state.voiceAnalyser = analyser;
+            console.log("[voice] analyser ready, audioContext state:", audioContext.state);
             monitorVoiceCapture();
         }
     } catch (error) {
@@ -541,6 +549,9 @@ function monitorVoiceCapture() {
     }
 
     if (peak >= VOICE_ACTIVITY_THRESHOLD) {
+        if (!state.voiceSpeechDetected) {
+            console.log("[vad] speech detected, peak:", peak);
+        }
         state.voiceSpeechDetected = true;
         state.voiceLastSignalAt = now;
     }
