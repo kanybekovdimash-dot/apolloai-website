@@ -9,6 +9,7 @@ from pipecat.pipeline.task import PipelineTask, PipelineParams
 from pipecat.transports.services.livekit import LiveKitTransport, LiveKitParams
 from pipecat.services.groq import GroqSTTService
 from pipecat.services.google import GoogleLLMService
+from yandex_tts import YandexTTSService
 
 load_dotenv()
 
@@ -47,13 +48,17 @@ async def run_bot(room_name: str):
         system_instruction=SYSTEM_PROMPT,
     )
 
-    # TTS: Yandex SpeechKit — added in Task 7 (yandex_tts.py)
-    # For now pipeline is STT → LLM only (no voice output yet)
+    tts = YandexTTSService(
+        api_key=os.getenv("YANDEX_API_KEY"),
+        voice=os.getenv("YANDEX_TTS_VOICE", "amira"),
+        lang="kk-KZ",
+    )
 
     pipeline = Pipeline([
         transport.input(),
         stt,
         llm,
+        tts,
         transport.output(),
     ])
 
