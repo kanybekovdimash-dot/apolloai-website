@@ -9,7 +9,8 @@ from pipecat.pipeline.task import PipelineTask, PipelineParams
 from pipecat.transports.services.livekit import LiveKitTransport, LiveKitParams
 from pipecat.services.groq import GroqSTTService
 from pipecat.services.google import GoogleLLMService
-from yandex_tts import YandexTTSService
+from pipecat.audio.vad.silero import SileroVADAnalyzer
+from kazakh_tts import KazakhTTS2Service
 from wav2lip_video import Wav2LipVideoProcessor
 
 load_dotenv()
@@ -35,6 +36,15 @@ async def run_bot(room_name: str):
             audio_out_enabled=True,
             video_out_enabled=True,
             vad_enabled=True,
+            vad_analyzer=SileroVADAnalyzer(
+                sample_rate=16000,
+                params=SileroVADAnalyzer.VADParams(
+                    confidence=0.6,
+                    start_secs=0.2,
+                    stop_secs=0.4,
+                    min_volume=0.4,
+                ),
+            ),
         ),
     )
 
@@ -50,10 +60,11 @@ async def run_bot(room_name: str):
         system_instruction=SYSTEM_PROMPT,
     )
 
-    tts = YandexTTSService(
-        api_key=os.getenv("YANDEX_API_KEY"),
-        voice=os.getenv("YANDEX_TTS_VOICE", "amira"),
-        lang="kk-KZ",
+    # KazakhTTS2 F1 (young female voice, ISSAI Nazarbayev University)
+    tts = KazakhTTS2Service(
+        model_dir=os.getenv("KAZTTS_MODEL_DIR", "/app/models/kaztts_f1"),
+        vocoder_dir=os.getenv("KAZTTS_VOCODER_DIR", "/app/models/vocoder_f1"),
+        device="cuda",
     )
 
     wav2lip_url = os.getenv("WAV2LIP_URL", "http://localhost:8000")
