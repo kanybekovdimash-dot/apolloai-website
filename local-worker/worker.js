@@ -114,6 +114,10 @@ export default {
         return handleTts(request, env, corsHeaders);
       }
 
+      if (request.method === "POST" && url.pathname === "/avatar-session") {
+        return handleAvatarSession(request, env, corsHeaders);
+      }
+
       return json({ ok: false, error: "Not found" }, 404, corsHeaders);
     } catch (error) {
       return json({ ok: false, error: error.message || "Internal error" }, 500, corsHeaders);
@@ -889,6 +893,65 @@ function buildSpeechPayload(env) {
     voice,
     format
   };
+}
+
+async function createLiveKitToken({ roomName, participantName, env }) {
+  const apiKey = env.LIVEKIT_KEY;
+  const apiSecret = env.LIVEKIT_SECRET;
+
+  if (!apiKey || !apiSecret) {
+    throw new Error("LiveKit credentials not configured");
+  }
+
+  const header = { alg: "HS256", typ: "JWT" };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: apiKey,
+    sub: participantName,
+    nbf: now,
+    exp: now + 3600,
+    jti: participantName + "-" + now,
+    video: {
+      roomJoin: true,
+      room: roomName,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true
+    }
+  };
+
+  const enc = (obj) => btoa(JSON.stringify(obj)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const headerB64 = enc(header);
+  const payloadB64 = enc(payload);
+  const data = new TextEncoder().encode(headerB64 + "." + payloadB64);
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(apiSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", key, data);
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+
+  return headerB64 + "." + payloadB64 + "." + sigB64;
+}
+
+async function handleAvatarSession(request, env, corsHeaders) {
+  const payload = await safeJson(request);
+  const sessionId = payload.sessionId || crypto.randomUUID();
+  const roomName = "avatar-" + sessionId;
+  const participantName = "user-" + sessionId.slice(0, 8);
+
+  const token = await createLiveKitToken({ roomName, participantName, env });
+  const livekitUrl = env.LIVEKIT_URL || "";
+
+  if (!livekitUrl) {
+    return json({ ok: false, error: "LiveKit URL not configured" }, 500, corsHeaders);
+  }
+
+  return json({
+    ok: true,
+    sessionId,
+    roomName,
+    participantName,
+    token,
+    livekitUrl
+  }, 200, corsHeaders);
 }
 
 function getProviderInfo(env) {
