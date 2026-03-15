@@ -196,9 +196,8 @@ function init() {
     setAvatarMode("idle");
     openWidget();
     window.setTimeout(async () => {
-        try {
-            await connectLiveKitAvatar();
-        } catch {
+        await connectLiveKitAvatar();
+        if (!state.livekitConnected) {
             requestMicrophoneAccess();
         }
     }, 180);
@@ -727,11 +726,9 @@ function initWidget() {
             return;
         }
 
-        connectLiveKitAvatar().catch(() => {
-            handleAvatarCoreInteraction().catch((error) => {
-                console.error("Avatar interaction failed", error);
-                setAvatarMode("idle");
-            });
+        handleAvatarCoreInteraction().catch((error) => {
+            console.error("Avatar interaction failed", error);
+            setAvatarMode("idle");
         });
     });
 
