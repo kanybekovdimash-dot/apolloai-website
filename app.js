@@ -22,7 +22,7 @@ const TRANSCRIBE_ENDPOINT = "/transcribe";
 const AVATAR_SESSION_ENDPOINT = "/avatar-session";
 const VOICE_CAPTURE_MAX_MS = 12000;
 const VOICE_SILENCE_MS = 1800;
-const VOICE_ACTIVITY_THRESHOLD = 6;
+const VOICE_ACTIVITY_THRESHOLD = 4;
 const VOICE_MIME_CANDIDATES = [
     "audio/webm;codecs=opus",
     "audio/webm",
@@ -537,20 +537,27 @@ function monitorVoiceCapture() {
     }
 
     const now = Date.now();
-    const sample = new Uint8Array(state.voiceAnalyser.fftSize);
-    state.voiceAnalyser.getByteTimeDomainData(sample);
+    const analyser = state.voiceAnalyser;
+    const bufLen = analyser.frequencyBinCount;
+    const freqData = new Uint8Array(bufLen);
+    analyser.getByteFrequencyData(freqData);
 
-    let peak = 0;
-    for (let i = 0; i < sample.length; i += 1) {
-        const distance = Math.abs(sample[i] - 128);
-        if (distance > peak) {
-            peak = distance;
-        }
+    // Calculate RMS energy from frequency data (more reliable than time domain with noiseSuppression)
+    let sum = 0;
+    for (let i = 0; i < bufLen; i++) {
+        sum += freqData[i];
+    }
+    const rms = sum / bufLen;
+
+    // Debug: log RMS every ~1 second
+    if (!state._lastVadLog || now - state._lastVadLog > 1000) {
+        console.log("[vad] rms:", rms.toFixed(1));
+        state._lastVadLog = now;
     }
 
-    if (peak >= VOICE_ACTIVITY_THRESHOLD) {
+    if (rms >= VOICE_ACTIVITY_THRESHOLD) {
         if (!state.voiceSpeechDetected) {
-            console.log("[vad] speech detected, peak:", peak);
+            console.log("[vad] speech detected, rms:", rms.toFixed(1));
         }
         state.voiceSpeechDetected = true;
         state.voiceLastSignalAt = now;
