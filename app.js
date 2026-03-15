@@ -1,10 +1,13 @@
-const WHATSAPP_NUMBER = "77757350968";
+import { connectAvatar, disconnectAvatar, isConnected } from "./livekit-avatar.js";
+
+const WHATSAPP_NUMBER = "+77758828516";
 const HERO_AUTOPLAY_MS = 5000;
 const SESSION_ENDPOINT = "/session";
 const CHAT_ENDPOINT = "/chat";
 const LEAD_ENDPOINT = "/lead";
 const TTS_ENDPOINT = "/tts";
 const TRANSCRIBE_ENDPOINT = "/transcribe";
+const AVATAR_SESSION_ENDPOINT = "/avatar-session";
 const VOICE_CAPTURE_MAX_MS = 12000;
 const VOICE_SILENCE_MS = 1800;
 const VOICE_ACTIVITY_THRESHOLD = 6;
@@ -137,7 +140,8 @@ const state = {
     audioUnlocked: false,
     pendingSpeechBlob: null,
     speechBlocked: false,
-    autoVoiceTimer: 0
+    autoVoiceTimer: 0,
+    livekitConnected: false
 };
 
 const elements = {
@@ -179,8 +183,12 @@ function init() {
     syncAvatarMedia();
     setAvatarMode("idle");
     openWidget();
-    window.setTimeout(() => {
-        requestMicrophoneAccess();
+    window.setTimeout(async () => {
+        try {
+            await connectLiveKitAvatar();
+        } catch {
+            requestMicrophoneAccess();
+        }
     }, 180);
 }
 
@@ -243,6 +251,49 @@ function maybeSpeakInitialGreeting() {
         state.initialGreetingSpoken = false;
         setAvatarMode("idle");
     });
+}
+
+async function connectLiveKitAvatar() {
+    if (isConnected()) {
+        return;
+    }
+
+    await ensureSession();
+
+    try {
+        setAvatarMode("thinking");
+
+        const result = await connectAvatar({
+            apiBase: runtime.apiBase,
+            sessionId: state.sessionId,
+            videoEl: elements.avatarVideo,
+            audioEl: elements.avatarAudio,
+            onStateChange: (avatarState) => {
+                if (avatarState === "connected") {
+                    setAvatarMode("idle");
+                    updateAvatarStatus("Аватар подключён. Говорите.");
+                } else if (avatarState === "listening") {
+                    setAvatarMode("listening");
+                } else if (avatarState === "thinking") {
+                    setAvatarMode("thinking");
+                } else if (avatarState === "speaking") {
+                    setAvatarMode("speaking");
+                } else if (avatarState === "disconnected") {
+                    setAvatarMode("idle");
+                    updateAvatarStatus("Аватар отключён.");
+                }
+            }
+        });
+
+        state.sessionId = result.sessionId;
+        state.livekitConnected = true;
+    } catch (error) {
+        console.error("LiveKit avatar connection failed", error);
+        state.livekitConnected = false;
+        setAvatarMode("idle");
+        updateAvatarStatus("Не удалось подключить аватар. Работает голосовой режим.");
+        queueAutoVoiceCapture(300);
+    }
 }
 
 function installAudioUnlock() {
@@ -660,9 +711,15 @@ function initWidget() {
     elements.widgetInput?.addEventListener("input", autoResizeTextarea);
 
     elements.avatarCore?.addEventListener("click", () => {
-        handleAvatarCoreInteraction().catch((error) => {
-            console.error("Avatar interaction failed", error);
-            setAvatarMode("idle");
+        if (state.livekitConnected && isConnected()) {
+            return;
+        }
+
+        connectLiveKitAvatar().catch(() => {
+            handleAvatarCoreInteraction().catch((error) => {
+                console.error("Avatar interaction failed", error);
+                setAvatarMode("idle");
+            });
         });
     });
 
@@ -1152,6 +1209,12 @@ function scrollMessagesToBottom() {
         top: elements.widgetMessages.scrollHeight,
         behavior: "smooth"
     });
+}
+
+function updateAvatarStatus(text) {
+    if (elements.avatarStatusText) {
+        elements.avatarStatusText.textContent = text;
+    }
 }
 
 function syncAvatarStatus(delivery) {
