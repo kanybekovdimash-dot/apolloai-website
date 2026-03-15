@@ -1,4 +1,16 @@
-import { connectAvatar, disconnectAvatar, isConnected } from "./livekit-avatar.js";
+// LiveKit avatar — загружаем динамически, чтобы не ломать сайт если livekit-client недоступен
+let connectAvatar = async () => { throw new Error("LiveKit not loaded"); };
+let disconnectAvatar = async () => {};
+let isConnected = () => false;
+
+try {
+    const lk = await import("./livekit-avatar.js");
+    connectAvatar = lk.connectAvatar;
+    disconnectAvatar = lk.disconnectAvatar;
+    isConnected = lk.isConnected;
+} catch (e) {
+    console.warn("LiveKit avatar not available, using browser voice mode:", e.message);
+}
 
 const WHATSAPP_NUMBER = "+77758828516";
 const HERO_AUTOPLAY_MS = 5000;
