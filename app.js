@@ -238,12 +238,9 @@ async function requestMicrophoneAccess(force = false) {
         state.voiceStream = stream;
         state.microphonePermission = "granted";
         syncAvatarStatus();
+        console.log("[mic] granted, speaking greeting");
         maybeSpeakInitialGreeting();
-        window.setTimeout(() => {
-            if (state.avatarMode !== "speaking") {
-                queueAutoVoiceCapture(120);
-            }
-        }, 360);
+        // Don't auto-capture here — the greeting audio "ended" event will start the cycle
     } catch (error) {
         state.microphonePermission = "denied";
         state.microphoneError = error?.name || "unknown";
@@ -330,8 +327,9 @@ async function unlockSpeechPlayback() {
     state.speechBlocked = false;
     syncAvatarStatus();
     await playSpeechBlob(pendingBlob);
-    // Don't return true — let the caller continue to start voice capture
-    return false;
+    // Return true — caller should NOT start recording while greeting plays
+    // The audio "ended" event will trigger queueAutoVoiceCapture
+    return true;
 }
 
 function queueAutoVoiceCapture(delay = 480) {
@@ -364,19 +362,27 @@ function bindAvatarAudioEvents() {
     }
 
     elements.avatarAudio?.addEventListener("play", () => {
+        // Stop any active recording while avatar speaks (prevents echo)
+        if (state.voiceRecorder?.state === "recording") {
+            console.log("[audio] stopping recorder — avatar is speaking");
+            state.voiceSpeechDetected = false; // discard captured audio
+            stopVoiceCapture();
+        }
         state.pendingSpeechBlob = null;
         state.speechBlocked = false;
         setAvatarMode("speaking");
         syncAvatarStatus();
     });
     elements.avatarAudio?.addEventListener("ended", () => {
+        console.log("[audio] ended — starting listen cycle");
         setAvatarMode("idle");
-        queueAutoVoiceCapture(180);
+        queueAutoVoiceCapture(400);
     });
     elements.avatarAudio?.addEventListener("pause", () => {
         if (state.avatarMode === "speaking") {
+            console.log("[audio] paused — starting listen cycle");
             setAvatarMode("idle");
-            queueAutoVoiceCapture(180);
+            queueAutoVoiceCapture(400);
         }
     });
 }
@@ -403,29 +409,31 @@ function pickVoiceMimeType() {
 }
 
 async function handleAvatarCoreInteraction() {
-    console.log("[avatar] interaction, mode:", state.avatarMode, "mic:", state.microphonePermission, "pending:", state.pending);
+    console.log("[avatar] click, mode:", state.avatarMode, "mic:", state.microphonePermission);
 
-    await unlockSpeechPlayback();
-
-    if (state.pending) {
-        console.log("[avatar] pending, skipping");
+    // If there's pending greeting audio, play it — voice capture will start when it ends
+    if (state.pendingSpeechBlob) {
+        await unlockSpeechPlayback();
         return;
     }
 
+    if (state.pending) {
+        return;
+    }
+
+    // If recording, stop it (manual stop = send what we have)
     if (state.voiceRecorder?.state === "recording") {
-        console.log("[avatar] stopping active recording");
         stopVoiceCapture();
         return;
     }
 
+    // If speaking, stop and start listening
     if (state.avatarMode === "speaking" && elements.avatarAudio && !elements.avatarAudio.paused) {
-        console.log("[avatar] stopping playback, switching to listen");
         elements.avatarAudio.pause();
         elements.avatarAudio.currentTime = 0;
         setAvatarMode("idle");
     }
 
-    console.log("[avatar] starting voice capture");
     await startVoiceCapture();
 }
 
