@@ -329,7 +329,9 @@ async function unlockSpeechPlayback() {
     state.pendingSpeechBlob = null;
     state.speechBlocked = false;
     syncAvatarStatus();
-    return playSpeechBlob(pendingBlob);
+    await playSpeechBlob(pendingBlob);
+    // Don't return true — let the caller continue to start voice capture
+    return false;
 }
 
 function queueAutoVoiceCapture(delay = 480) {
@@ -401,28 +403,29 @@ function pickVoiceMimeType() {
 }
 
 async function handleAvatarCoreInteraction() {
-    const resumedSpeech = await unlockSpeechPlayback();
-    if (resumedSpeech) {
-        return;
-    }
+    console.log("[avatar] interaction, mode:", state.avatarMode, "mic:", state.microphonePermission, "pending:", state.pending);
+
+    await unlockSpeechPlayback();
 
     if (state.pending) {
+        console.log("[avatar] pending, skipping");
         return;
     }
 
     if (state.voiceRecorder?.state === "recording") {
+        console.log("[avatar] stopping active recording");
         stopVoiceCapture();
         return;
     }
 
     if (state.avatarMode === "speaking" && elements.avatarAudio && !elements.avatarAudio.paused) {
+        console.log("[avatar] stopping playback, switching to listen");
         elements.avatarAudio.pause();
         elements.avatarAudio.currentTime = 0;
         setAvatarMode("idle");
-        queueAutoVoiceCapture(120);
-        return;
     }
 
+    console.log("[avatar] starting voice capture");
     await startVoiceCapture();
 }
 
@@ -480,6 +483,7 @@ async function startVoiceCapture() {
         const blob = chunks.length ? new Blob(chunks, { type: state.voiceMimeType || "audio/webm" }) : null;
         const hadSpeech = state.voiceSpeechDetected;
         cleanupVoiceCapture();
+        console.log("[voice] recording stopped, hadSpeech:", hadSpeech, "blobSize:", blob?.size || 0);
 
         if (!blob || !blob.size || !hadSpeech) {
             setAvatarMode("idle");
@@ -508,6 +512,7 @@ async function startVoiceCapture() {
 
     recorder.start(250);
     setAvatarMode("listening");
+    console.log("[voice] recording started, mimeType:", state.voiceMimeType);
 }
 
 function monitorVoiceCapture() {
@@ -604,9 +609,11 @@ async function transcribeSpeechBlob(blob) {
 
         const text = String(result.text || "").trim();
         state.transcript = text;
+        console.log("[voice] transcribed:", text || "(empty)");
 
         if (!text) {
             setAvatarMode("idle");
+            queueAutoVoiceCapture(300);
             return;
         }
 
