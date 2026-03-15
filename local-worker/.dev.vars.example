@@ -38,3 +38,6 @@ OLLAMA_CHAT_MODEL=qwen3.5:27b
 HF_CHAT_URL=
 HF_STT_URL=
 HUGGINGFACE_TOKEN=
+LIVEKIT_URL=ws://51.38.99.1:7880
+LIVEKIT_KEY=your-livekit-key-here
+LIVEKIT_SECRET=your-livekit-secret-here
