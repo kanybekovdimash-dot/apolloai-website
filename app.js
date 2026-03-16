@@ -9,7 +9,7 @@ try {
     disconnectAvatar = lk.disconnectAvatar;
     isConnected = lk.isConnected;
 } catch (e) {
-    console.warn("LiveKit avatar not available, using browser voice mode:", e.message);
+    console.warn("LiveKit avatar not available:", e.message);
 }
 
 const WHATSAPP_NUMBER = "+77758828516";
@@ -17,18 +17,7 @@ const HERO_AUTOPLAY_MS = 5000;
 const SESSION_ENDPOINT = "/session";
 const CHAT_ENDPOINT = "/chat";
 const LEAD_ENDPOINT = "/lead";
-const TTS_ENDPOINT = "/tts";
-const TRANSCRIBE_ENDPOINT = "/transcribe";
 const AVATAR_SESSION_ENDPOINT = "/avatar-session";
-const VOICE_CAPTURE_MAX_MS = 12000;
-const VOICE_SILENCE_MS = 500;
-const VOICE_ACTIVITY_THRESHOLD = 4;
-const VOICE_MIME_CANDIDATES = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/ogg;codecs=opus",
-    "audio/mp4"
-];
 
 const FIELD_DEFINITIONS = [
     {
@@ -132,27 +121,6 @@ const state = {
     submittedAt: null,
     avatar: null,
     avatarMode: "idle",
-    microphonePermission: "idle",
-    microphoneError: "",
-    speechRequestId: 0,
-    speechObjectUrl: "",
-    voiceRecorder: null,
-    voiceStream: null,
-    voiceChunks: [],
-    voiceAnalyser: null,
-    voiceAudioContext: null,
-    voiceRaf: 0,
-    voiceSpeechDetected: false,
-    voiceLastSignalAt: 0,
-    voiceStartedAt: 0,
-    voiceMimeType: "",
-    transcript: "",
-    initialGreetingSpoken: false,
-    initialGreetingText: "",
-    audioUnlocked: false,
-    pendingSpeechBlob: null,
-    speechBlocked: false,
-    autoVoiceTimer: 0,
     livekitConnected: false
 };
 
@@ -188,77 +156,14 @@ function init() {
     initHeroSlider();
     initWidget();
     initVideoModal();
-    bindAvatarAudioEvents();
-    installAudioUnlock();
     syncLeadProgress();
     syncAvatarDemo();
     syncAvatarMedia();
     setAvatarMode("idle");
     openWidget();
-    window.setTimeout(async () => {
-        await connectLiveKitAvatar();
-        if (!state.livekitConnected) {
-            requestMicrophoneAccess();
-        }
+    window.setTimeout(() => {
+        connectLiveKitAvatar();
     }, 180);
-}
-
-async function requestMicrophoneAccess(force = false) {
-    if (!navigator.mediaDevices?.getUserMedia) {
-        state.microphonePermission = "unsupported";
-        state.microphoneError = "browser";
-        syncAvatarStatus();
-        return;
-    }
-
-    if (!window.isSecureContext) {
-        state.microphonePermission = "blocked";
-        state.microphoneError = "secure-context";
-        syncAvatarStatus();
-        return;
-    }
-
-    if (!force && ["granted", "pending"].includes(state.microphonePermission)) {
-        return;
-    }
-
-    state.microphonePermission = "pending";
-    state.microphoneError = "";
-    syncAvatarStatus();
-
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-            }
-        });
-
-        state.voiceStream = stream;
-        state.microphonePermission = "granted";
-        syncAvatarStatus();
-        console.log("[mic] granted, speaking greeting");
-        maybeSpeakInitialGreeting();
-        // Don't auto-capture here — the greeting audio "ended" event will start the cycle
-    } catch (error) {
-        state.microphonePermission = "denied";
-        state.microphoneError = error?.name || "unknown";
-        syncAvatarStatus();
-    }
-}
-
-function maybeSpeakInitialGreeting() {
-    if (state.initialGreetingSpoken || !state.initialGreetingText || !runtime.apiBase) {
-        return;
-    }
-
-    state.initialGreetingSpoken = true;
-    requestGeneratedSpeech(state.initialGreetingText).catch((error) => {
-        console.error("Initial greeting speech failed", error);
-        state.initialGreetingSpoken = false;
-        setAvatarMode("idle");
-    });
 }
 
 async function connectLiveKitAvatar() {
@@ -299,92 +204,8 @@ async function connectLiveKitAvatar() {
         console.error("LiveKit avatar connection failed", error);
         state.livekitConnected = false;
         setAvatarMode("idle");
-        updateAvatarStatus("Не удалось подключить аватар. Работает голосовой режим.");
-        queueAutoVoiceCapture(300);
+        updateAvatarStatus("Не удалось подключить аватар.");
     }
-}
-
-function installAudioUnlock() {
-    const unlock = () => {
-        unlockSpeechPlayback().catch((error) => {
-            console.error("Speech unlock failed", error);
-        });
-    };
-
-    window.addEventListener("pointerdown", unlock, { passive: true });
-    window.addEventListener("keydown", unlock);
-}
-
-async function unlockSpeechPlayback() {
-    state.audioUnlocked = true;
-
-    if (!state.pendingSpeechBlob) {
-        return false;
-    }
-
-    const pendingBlob = state.pendingSpeechBlob;
-    state.pendingSpeechBlob = null;
-    state.speechBlocked = false;
-    syncAvatarStatus();
-    await playSpeechBlob(pendingBlob);
-    // Return true — caller should NOT start recording while greeting plays
-    // The audio "ended" event will trigger queueAutoVoiceCapture
-    return true;
-}
-
-function queueAutoVoiceCapture(delay = 480) {
-    if (state.autoVoiceTimer) {
-        window.clearTimeout(state.autoVoiceTimer);
-        state.autoVoiceTimer = 0;
-    }
-
-    if (state.microphonePermission !== "granted" || state.pending || state.voiceRecorder || state.avatarMode === "speaking" || document.hidden) {
-        return;
-    }
-
-    state.autoVoiceTimer = window.setTimeout(() => {
-        state.autoVoiceTimer = 0;
-
-        if (state.microphonePermission !== "granted" || state.pending || state.voiceRecorder || state.avatarMode === "speaking" || document.hidden) {
-            return;
-        }
-
-        startVoiceCapture().catch((error) => {
-            console.error("Auto voice capture failed", error);
-            setAvatarMode("idle");
-        });
-    }, delay);
-}
-
-function bindAvatarAudioEvents() {
-    if (elements.avatarAudio) {
-        elements.avatarAudio.preload = "auto";
-    }
-
-    elements.avatarAudio?.addEventListener("play", () => {
-        // Stop any active recording while avatar speaks (prevents echo)
-        if (state.voiceRecorder?.state === "recording") {
-            console.log("[audio] stopping recorder — avatar is speaking");
-            state.voiceSpeechDetected = false; // discard captured audio
-            stopVoiceCapture();
-        }
-        state.pendingSpeechBlob = null;
-        state.speechBlocked = false;
-        setAvatarMode("speaking");
-        syncAvatarStatus();
-    });
-    elements.avatarAudio?.addEventListener("ended", () => {
-        console.log("[audio] ended — starting listen cycle");
-        setAvatarMode("idle");
-        queueAutoVoiceCapture(400);
-    });
-    elements.avatarAudio?.addEventListener("pause", () => {
-        if (state.avatarMode === "speaking") {
-            console.log("[audio] paused — starting listen cycle");
-            setAvatarMode("idle");
-            queueAutoVoiceCapture(400);
-        }
-    });
 }
 
 function setAvatarMode(mode) {
@@ -394,289 +215,6 @@ function setAvatarMode(mode) {
     syncAvatarStatus();
 }
 
-function pickVoiceMimeType() {
-    if (typeof MediaRecorder === "undefined") {
-        return "";
-    }
-
-    for (const type of VOICE_MIME_CANDIDATES) {
-        if (!MediaRecorder.isTypeSupported || MediaRecorder.isTypeSupported(type)) {
-            return type;
-        }
-    }
-
-    return "";
-}
-
-async function handleAvatarCoreInteraction() {
-    console.log("[avatar] click, mode:", state.avatarMode, "mic:", state.microphonePermission);
-
-    // If there's pending greeting audio, play it — voice capture will start when it ends
-    if (state.pendingSpeechBlob) {
-        await unlockSpeechPlayback();
-        return;
-    }
-
-    if (state.pending) {
-        return;
-    }
-
-    // If recording, stop it (manual stop = send what we have)
-    if (state.voiceRecorder?.state === "recording") {
-        stopVoiceCapture();
-        return;
-    }
-
-    // If speaking, stop and start listening
-    if (state.avatarMode === "speaking" && elements.avatarAudio && !elements.avatarAudio.paused) {
-        elements.avatarAudio.pause();
-        elements.avatarAudio.currentTime = 0;
-        setAvatarMode("idle");
-    }
-
-    await startVoiceCapture();
-}
-
-async function startVoiceCapture() {
-    await ensureSession();
-
-    if (state.microphonePermission !== "granted") {
-        await requestMicrophoneAccess(true);
-        if (state.microphonePermission !== "granted") {
-            return;
-        }
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-        state.microphonePermission = "unsupported";
-        syncAvatarStatus();
-        return;
-    }
-
-    cleanupVoiceCapture();
-
-    let stream = state.voiceStream;
-    const hasLiveTrack = stream?.getAudioTracks?.().some((track) => track.readyState === "live" && track.enabled !== false);
-
-    if (!hasLiveTrack) {
-        stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-            }
-        });
-        state.voiceStream = stream;
-    }
-
-    const mimeType = pickVoiceMimeType();
-    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-    const chunks = [];
-
-    state.voiceStream = stream;
-    state.voiceRecorder = recorder;
-    state.voiceChunks = chunks;
-    state.voiceMimeType = mimeType || recorder.mimeType || "audio/webm";
-    state.voiceSpeechDetected = false;
-    state.voiceStartedAt = Date.now();
-    state.voiceLastSignalAt = Date.now();
-
-    recorder.addEventListener("dataavailable", (event) => {
-        if (event.data && event.data.size) {
-            chunks.push(event.data);
-        }
-    });
-
-    recorder.addEventListener("stop", async () => {
-        const blob = chunks.length ? new Blob(chunks, { type: state.voiceMimeType || "audio/webm" }) : null;
-        cleanupVoiceCapture();
-        console.log("[voice] recording stopped, blobSize:", blob?.size || 0);
-
-        // Skip only truly empty blobs; let Whisper decide if there's speech
-        if (!blob || blob.size < 1000) {
-            console.log("[voice] blob too small, restarting capture");
-            setAvatarMode("idle");
-            queueAutoVoiceCapture(220);
-            return;
-        }
-
-        await transcribeSpeechBlob(blob);
-    });
-
-    try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtx) {
-            const audioContext = new AudioCtx();
-            // Chrome suspends AudioContext by default — must resume for analyser to work
-            if (audioContext.state === "suspended") {
-                await audioContext.resume();
-            }
-            const analyser = audioContext.createAnalyser();
-            analyser.fftSize = 2048;
-            const source = audioContext.createMediaStreamSource(stream);
-            source.connect(analyser);
-            state.voiceAudioContext = audioContext;
-            state.voiceAnalyser = analyser;
-            console.log("[voice] analyser ready, audioContext state:", audioContext.state);
-            // Use setInterval instead of requestAnimationFrame — rAF pauses when tab/devtools loses focus
-            state.voiceMonitorInterval = window.setInterval(monitorVoiceCapture, 100);
-        }
-    } catch (error) {
-        console.warn("Voice analyser unavailable", error);
-    }
-
-    recorder.start(250);
-    setAvatarMode("listening");
-    console.log("[voice] recording started, mimeType:", state.voiceMimeType);
-}
-
-function monitorVoiceCapture() {
-    if (!state.voiceRecorder || state.voiceRecorder.state !== "recording") {
-        return;
-    }
-
-    const now = Date.now();
-    const elapsed = now - state.voiceStartedAt;
-
-    // Try frequency-based VAD if analyser is available
-    if (state.voiceAnalyser) {
-        const analyser = state.voiceAnalyser;
-        const bufLen = analyser.frequencyBinCount;
-        const freqData = new Uint8Array(bufLen);
-        analyser.getByteFrequencyData(freqData);
-
-        let sum = 0;
-        for (let i = 0; i < bufLen; i++) {
-            sum += freqData[i];
-        }
-        const rms = sum / bufLen;
-
-        // Debug: log RMS every ~1 second
-        if (!state._lastVadLog || now - state._lastVadLog > 1000) {
-            console.log("[vad] rms:", rms.toFixed(1), "elapsed:", (elapsed / 1000).toFixed(1) + "s");
-            state._lastVadLog = now;
-        }
-
-        if (rms >= VOICE_ACTIVITY_THRESHOLD) {
-            if (!state.voiceSpeechDetected) {
-                console.log("[vad] speech detected, rms:", rms.toFixed(1));
-            }
-            state.voiceSpeechDetected = true;
-            state.voiceLastSignalAt = now;
-        }
-
-        const silence = now - state.voiceLastSignalAt;
-        if (state.voiceSpeechDetected && silence >= VOICE_SILENCE_MS && elapsed >= 1200) {
-            console.log("[vad] silence after speech, auto-stopping");
-            stopVoiceCapture();
-            return;
-        }
-    }
-
-    // Hard max timeout — stop regardless
-    if (elapsed >= VOICE_CAPTURE_MAX_MS) {
-        console.log("[vad] max time reached, auto-stopping");
-        stopVoiceCapture();
-        return;
-    }
-}
-
-function stopVoiceCapture() {
-    if (state.voiceRecorder?.state === "recording") {
-        state.voiceRecorder.stop();
-    }
-}
-
-function cleanupVoiceCapture() {
-    if (state.voiceMonitorInterval) {
-        window.clearInterval(state.voiceMonitorInterval);
-        state.voiceMonitorInterval = 0;
-    }
-    if (state.voiceRaf) {
-        window.cancelAnimationFrame(state.voiceRaf);
-        state.voiceRaf = 0;
-    }
-
-    if (state.voiceAudioContext) {
-        state.voiceAudioContext.close().catch(() => undefined);
-        state.voiceAudioContext = null;
-    }
-
-    state.voiceRecorder = null;
-    state.voiceAnalyser = null;
-    state.voiceChunks = [];
-}
-
-function releaseVoiceStream() {
-    if (!state.voiceStream) {
-        return;
-    }
-
-    state.voiceStream.getTracks().forEach((track) => track.stop());
-    state.voiceStream = null;
-}
-
-window.addEventListener("beforeunload", () => {
-    releaseVoiceStream();
-});
-
-async function transcribeSpeechBlob(blob) {
-    if (!runtime.apiBase) {
-        setAvatarMode("idle");
-        return;
-    }
-
-    setAvatarMode("thinking");
-    setPending(true);
-
-    try {
-        const formData = new FormData();
-        const extension = (blob.type || "").includes("ogg") ? "ogg" : "webm";
-        const file = new File([blob], `voice-${Date.now()}.${extension}`, {
-            type: blob.type || "audio/webm"
-        });
-
-        formData.set("audio", file);
-        formData.set("language", "kk");
-
-        const result = await fetchJson(`${runtime.apiBase}${TRANSCRIBE_ENDPOINT}`, {
-            method: "POST",
-            body: formData
-        });
-
-        const text = String(result.text || "").trim();
-        state.transcript = text;
-        console.log("[voice] transcribed:", text || "(empty)");
-
-        if (!text) {
-            setAvatarMode("idle");
-            queueAutoVoiceCapture(300);
-            return;
-        }
-
-        addUserMessage(text);
-
-        const payload = state.usingLocalFallback
-            ? runLocalFallbackChat(text)
-            : await fetchJson(`${runtime.apiBase}${CHAT_ENDPOINT}`, {
-                method: "POST",
-                body: JSON.stringify({
-                    sessionId: state.sessionId,
-                    message: text,
-                    clientState: exportClientState()
-                })
-            });
-
-        applyAssistantPayload(payload);
-    } catch (error) {
-        console.error("Voice pipeline failed", error);
-        addAssistantMessage("Не получилось обработать голос. Попробуйте ещё раз.");
-        setAvatarMode("idle");
-        queueAutoVoiceCapture(300);
-    } finally {
-        setPending(false);
-    }
-}
 function readMetaContent(name) {
     return document.querySelector(`meta[name="${name}"]`)?.getAttribute("content")?.trim() || "";
 }
@@ -765,29 +303,6 @@ function initWidget() {
 
     elements.widgetInput?.addEventListener("input", autoResizeTextarea);
 
-    elements.avatarCore?.addEventListener("click", () => {
-        if (state.livekitConnected && isConnected()) {
-            return;
-        }
-
-        handleAvatarCoreInteraction().catch((error) => {
-            console.error("Avatar interaction failed", error);
-            setAvatarMode("idle");
-        });
-    });
-
-    elements.avatarCore?.addEventListener("keydown", (event) => {
-        if (!["Enter", " ", "Spacebar"].includes(event.key)) {
-            return;
-        }
-
-        event.preventDefault();
-        handleAvatarCoreInteraction().catch((error) => {
-            console.error("Avatar interaction failed", error);
-            setAvatarMode("idle");
-        });
-    });
-
     elements.quickActions?.addEventListener("click", (event) => {
         const target = event.target.closest("[data-quick-action]");
         if (!target) {
@@ -809,12 +324,6 @@ function initWidget() {
         autoResizeTextarea({ currentTarget: elements.widgetInput });
         sendWidgetMessage();
     });
-
-    elements.widget?.addEventListener("click", () => {
-        if (state.microphonePermission !== "granted") {
-            requestMicrophoneAccess(true);
-        }
-    });
 }
 
 async function openWidget() {
@@ -828,9 +337,7 @@ async function openWidget() {
     if (!state.initializedChat) {
         const greeting = buildGreetingMessages();
         greeting.forEach((line) => addAssistantMessage(line));
-        state.initialGreetingText = greeting[0] || "";
         state.initializedChat = true;
-        maybeSpeakInitialGreeting();
     }
 
     window.setTimeout(() => elements.widgetInput?.focus(), 80);
@@ -840,6 +347,15 @@ function closeWidget() {
     state.widgetOpen = false;
     elements.widget?.classList.remove("is-open");
     elements.widget?.setAttribute("aria-hidden", "true");
+
+    // Disconnect LiveKit when widget closes
+    if (state.livekitConnected) {
+        disconnectAvatar().catch((error) => {
+            console.error("LiveKit disconnect failed", error);
+        });
+        state.livekitConnected = false;
+        setAvatarMode("idle");
+    }
 }
 
 async function ensureSession() {
@@ -983,7 +499,9 @@ function applyAssistantPayload(payload) {
     state.submittedAt = payload.submittedAt || (payload.submitted ? new Date().toISOString() : null);
 
     state.avatar = payload.avatar || state.avatar;
-    syncAssistantMedia(payload);
+    if (payload.avatar) {
+        syncAvatarMedia(payload.avatar);
+    }
     syncLeadProgress();
     syncAvatarStatus(payload.delivery);
 
@@ -1275,31 +793,6 @@ function syncAvatarStatus(delivery) {
         return;
     }
 
-    if (state.microphonePermission === "pending") {
-        elements.avatarStatusText.textContent = "Проверяю микрофон и готовлю голосовой режим...";
-        return;
-    }
-
-    if (state.speechBlocked) {
-        elements.avatarStatusText.textContent = "Нажмите на аватар, чтобы включить голос.";
-        return;
-    }
-
-    if (state.microphonePermission === "denied") {
-        elements.avatarStatusText.textContent = "Нажмите на аватар и дайте доступ к микрофону.";
-        return;
-    }
-
-    if (state.microphonePermission === "blocked") {
-        elements.avatarStatusText.textContent = "Для микрофона откройте сайт по HTTPS.";
-        return;
-    }
-
-    if (state.microphonePermission === "unsupported") {
-        elements.avatarStatusText.textContent = "Браузер не поддерживает голосовой доступ к микрофону.";
-        return;
-    }
-
     if (delivery?.ok) {
         elements.avatarStatusText.textContent = "Заявка отправлена. Жду следующего клиента.";
         return;
@@ -1325,28 +818,9 @@ function syncAvatarStatus(delivery) {
         return;
     }
 
-    elements.avatarStatusText.textContent = "Онлайн. Нажмите на аватар и говорите.";
-}
-function syncAssistantMedia(payload) {
-    if (!payload) {
-        return;
-    }
-
-    if (payload.avatar) {
-        syncAvatarMedia(payload.avatar);
-    }
-
-    const speech = payload.speech || payload.audio;
-    if (speech) {
-        syncSpeechMedia(speech);
-        if (speech.audioUrl || speech.streamUrl) {
-            return;
-        }
-    }
-
-    if (typeof payload.reply === "string" && payload.reply.trim()) {
-        requestGeneratedSpeech(payload.reply.trim(), speech || {});
-    }
+    elements.avatarStatusText.textContent = state.livekitConnected
+        ? "Аватар подключён. Говорите."
+        : "Подключаюсь к аватару...";
 }
 
 function resolveAvatarDemoUrl(avatar = state.avatar) {
@@ -1408,103 +882,6 @@ function syncAvatarMedia(avatar) {
         elements.avatarVideo.dataset.mediaUrl = videoUrl;
         elements.avatarVideo.src = videoUrl;
         elements.avatarVideo.play().catch(() => undefined);
-    }
-}
-function syncSpeechMedia(speech) {
-    const audioUrl = speech?.audioUrl || speech?.streamUrl || "";
-    if (!elements.avatarAudio || !audioUrl) {
-        return;
-    }
-
-    if (elements.avatarAudio.dataset.mediaUrl === audioUrl) {
-        return;
-    }
-
-    releaseSpeechObjectUrl(audioUrl);
-    elements.avatarAudio.dataset.mediaUrl = audioUrl;
-    elements.avatarAudio.src = audioUrl;
-    setAvatarMode("speaking");
-    elements.avatarAudio.play().catch((error) => {
-        console.warn("Speech media playback blocked", error);
-        state.speechBlocked = true;
-        syncAvatarStatus();
-    });
-}
-async function requestGeneratedSpeech(text, speech = {}) {
-    if (!text || state.usingLocalFallback || !runtime.apiBase || speech.enabled === false) {
-        return;
-    }
-
-    const provider = (speech.provider || "yandex").toLowerCase();
-    if (!["azure", "yandex"].includes(provider)) {
-        return;
-    }
-
-    const requestId = ++state.speechRequestId;
-    setAvatarMode("thinking");
-
-    try {
-        const response = await fetch(`${runtime.apiBase}${speech.endpoint || TTS_ENDPOINT}`, {
-            method: "POST",
-            headers: {
-                Accept: "audio/mpeg, audio/*, application/json",
-                "Content-Type": "application/json; charset=utf-8"
-            },
-            body: JSON.stringify({
-                text,
-                provider,
-                voice: speech.voice,
-                format: speech.format
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText || `TTS request failed with status ${response.status}`);
-        }
-
-        const blob = await response.blob();
-        if (!blob.size || requestId != state.speechRequestId) {
-            return;
-        }
-
-        await playSpeechBlob(blob);
-    } catch (error) {
-        console.error("TTS request failed", error);
-        setAvatarMode("idle");
-    }
-}
-async function playSpeechBlob(blob) {
-    if (!elements.avatarAudio) {
-        return false;
-    }
-
-    releaseSpeechObjectUrl();
-    const objectUrl = URL.createObjectURL(blob);
-    state.speechObjectUrl = objectUrl;
-    elements.avatarAudio.dataset.mediaUrl = objectUrl;
-    elements.avatarAudio.src = objectUrl;
-    setAvatarMode("speaking");
-
-    try {
-        await elements.avatarAudio.play();
-        state.pendingSpeechBlob = null;
-        state.speechBlocked = false;
-        syncAvatarStatus();
-        return true;
-    } catch (error) {
-        console.warn("Audio autoplay blocked", error);
-        state.pendingSpeechBlob = blob;
-        state.speechBlocked = true;
-        setAvatarMode("idle");
-        syncAvatarStatus();
-        return false;
-    }
-}
-function releaseSpeechObjectUrl(nextUrl = "") {
-    if (state.speechObjectUrl && state.speechObjectUrl != nextUrl) {
-        URL.revokeObjectURL(state.speechObjectUrl);
-        state.speechObjectUrl = "";
     }
 }
 
@@ -1587,5 +964,3 @@ function normalize(text) {
 }
 
 init();
-
-

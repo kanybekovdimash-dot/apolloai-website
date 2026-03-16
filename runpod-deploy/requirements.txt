@@ -1,22 +1,5 @@
-# Pipecat + AI services
-pipecat-ai[livekit,groq,google,silero]==0.0.52
-livekit-api>=0.7.0
-python-dotenv>=1.0.0
-aiohttp>=3.9.0
-
-# KazakhTTS2 (ESPnet)
-espnet>=202301
-espnet_model_zoo
-parallel_wavegan
-librosa>=0.10.0
-soundfile>=0.12.0
-
-# Wav2Lip server
-flask
-gunicorn
-opencv-python-headless
-
-# Shared
-numpy<2
-torch>=2.0.0
-torchvision>=0.15.0
+pipecat-ai[google,groq,silero,livekit]==0.0.52
+aiohttp>=3.9
+flask>=3.0
+python-dotenv
+livekit-api>=0.7

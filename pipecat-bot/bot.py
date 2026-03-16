@@ -10,8 +10,8 @@ from pipecat.transports.services.livekit import LiveKitTransport, LiveKitParams
 from pipecat.services.groq import GroqSTTService
 from pipecat.services.google import GoogleLLMService
 from pipecat.audio.vad.silero import SileroVADAnalyzer
-from kazakh_tts import KazakhTTS2Service
-from wav2lip_video import Wav2LipVideoProcessor
+from yandex_tts import YandexTTSService
+from ditto_video import DittoVideoProcessor
 
 load_dotenv()
 
@@ -60,15 +60,15 @@ async def run_bot(room_name: str):
         system_instruction=SYSTEM_PROMPT,
     )
 
-    # KazakhTTS2 F1 (young female voice, ISSAI Nazarbayev University)
-    tts = KazakhTTS2Service(
-        model_dir=os.getenv("KAZTTS_MODEL_DIR", "/app/models/kaztts_f1"),
-        vocoder_dir=os.getenv("KAZTTS_VOCODER_DIR", "/app/models/vocoder_f1"),
-        device="cuda",
+    tts = YandexTTSService(
+        api_key=os.getenv("YANDEX_API_KEY"),
+        voice="zhanar",
+        lang="kk-KZ",
+        sample_rate=48000,
     )
 
-    wav2lip_url = os.getenv("WAV2LIP_URL", "http://localhost:8000")
-    video = Wav2LipVideoProcessor(wav2lip_url=wav2lip_url)
+    ditto_url = os.getenv("DITTO_URL", "http://localhost:8000")
+    video = DittoVideoProcessor(ditto_url=ditto_url)
 
     pipeline = Pipeline([
         transport.input(),

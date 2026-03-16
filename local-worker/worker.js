@@ -667,7 +667,7 @@ async function synthesizeWithYandex({ text, voice, format, env }) {
     throw new Error("Yandex SpeechKit is not configured");
   }
 
-  const voiceName = normalizeYandexVoice(voice || env.YANDEX_TTS_VOICE || "amira");
+  const voiceName = normalizeYandexVoice(voice || env.YANDEX_TTS_VOICE || "zhanar");
   const audioFormat = String(format || env.YANDEX_TTS_FORMAT || "mp3").trim();
   const language = String(env.YANDEX_TTS_LANG || "kk-KZ").trim();
   const speed = String(env.YANDEX_TTS_SPEED || "1.0").trim();
@@ -871,7 +871,7 @@ function buildSpeechPayload(env) {
   const audioUrl = env.SPEECH_AUDIO_URL || env.SPEECH_STREAM_URL || "";
   const voice =
     provider === "yandex"
-      ? normalizeYandexVoice(env.YANDEX_TTS_VOICE || "amira")
+      ? normalizeYandexVoice(env.YANDEX_TTS_VOICE || "zhanar")
       : env.AZURE_TTS_VOICE || "kk-KZ-AigulNeural";
   const format =
     provider === "yandex"
@@ -971,7 +971,7 @@ function getProviderInfo(env) {
     },
     tts: {
       provider: getTtsProvider(env),
-      voice: getTtsProvider(env) === "yandex" ? normalizeYandexVoice(env.YANDEX_TTS_VOICE || "amira") : env.AZURE_TTS_VOICE || "kk-KZ-AigulNeural",
+      voice: getTtsProvider(env) === "yandex" ? normalizeYandexVoice(env.YANDEX_TTS_VOICE || "zhanar") : env.AZURE_TTS_VOICE || "kk-KZ-AigulNeural",
       endpoint: ["azure", "yandex"].includes(getTtsProvider(env)) ? "/tts" : env.RUNPOD_TTS_URL || env.TTS_ENDPOINT || ""
     },
     runpodBaseUrl: env.RUNPOD_BASE_URL || ""
@@ -1140,7 +1140,7 @@ function deriveSpeechLocaleFromVoice(voice) {
 
 function normalizeYandexVoice(voice) {
   const normalized = String(voice || "").trim().toLowerCase();
-  return ["amira", "madi"].includes(normalized) ? normalized : "amira";
+  return ["amira", "madi", "zhanar"].includes(normalized) ? normalized : "zhanar";
 }
 
 function resolveYandexContentType(format, headerValue) {
