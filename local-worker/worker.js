@@ -1,69 +1,69 @@
 const FIELD_DEFINITIONS = [
   {
     key: "childName",
-    label: "Имя",
-    question: "Как зовут ребёнка?",
+    label: "Аты",
+    question: "Баланың аты кім?",
     normalize: (value) => value.replace(/\s+/g, " ").trim(),
     validate: (value) => value.length >= 2,
-    error: "Нужно имя ребёнка хотя бы из 2 символов."
+    error: "Баланың атын жазыңыз (кемінде 2 таңба)."
   },
   {
     key: "childAge",
-    label: "Возраст",
-    question: "Сколько лет ребёнку?",
+    label: "Жасы",
+    question: "Баланың жасы нешеде?",
     normalize: (value) => value.replace(/[^\d]/g, ""),
     validate: (value) => {
       const age = Number(value);
       return Number.isInteger(age) && age >= 4 && age <= 18;
     },
-    error: "Введите возраст цифрами, например 9 или 13."
+    error: "Жасын санмен жазыңыз, мысалы 9 немесе 13."
   },
   {
     key: "city",
-    label: "Город",
-    question: "Из какого вы города?",
+    label: "Қала",
+    question: "Қай қаладансыз?",
     normalize: (value) => value.replace(/\s+/g, " ").trim(),
     validate: (value) => value.length >= 2,
-    error: "Напишите, пожалуйста, город."
+    error: "Қалаңызды жазыңыз."
   },
   {
     key: "parentName",
-    label: "Родитель",
-    question: "Как зовут родителя или законного представителя?",
+    label: "Ата-ана",
+    question: "Ата-анасының немесе заңды өкілінің аты кім?",
     normalize: (value) => value.replace(/\s+/g, " ").trim(),
     validate: (value) => value.length >= 2,
-    error: "Нужно имя родителя или законного представителя."
+    error: "Ата-ана немесе заңды өкілдің атын жазыңыз."
   },
   {
     key: "phone",
-    label: "Контакт",
-    question: "Оставьте номер телефона или WhatsApp для связи.",
+    label: "Байланыс",
+    question: "Байланыс телефон нөміріңізді немесе WhatsApp жазыңыз.",
     normalize: (value) => value.replace(/\s+/g, " ").trim(),
     validate: (value) => /\d{10,}/.test(value.replace(/[^\d]/g, "")),
-    error: "Введите телефон или WhatsApp в понятном формате, например +7 777 123 45 67."
+    error: "Телефон нөмірін жазыңыз, мысалы +7 777 123 45 67."
   },
   {
     key: "experience",
-    label: "Опыт",
-    question: "Есть ли у ребёнка опыт: съёмки, сцена, курсы, TikTok или reels?",
+    label: "Тәжірибе",
+    question: "Баланың тәжірибесі бар ма: түсірілім, сахна, курстар, TikTok немесе reels?",
     normalize: (value) => value.replace(/\s+/g, " ").trim(),
     validate: (value) => value.length >= 2,
-    error: "Напишите коротко: нет опыта, немного опыта или уже снимался."
+    error: "Қысқаша жазыңыз: тәжірибе жоқ, аз тәжірибе немесе түсірілген."
   },
   {
     key: "note",
-    label: "Комментарий",
-    question: "Что важно учесть: мечтает сниматься, любит сцену, уже ходит на курсы или есть другой комментарий?",
+    label: "Ескерту",
+    question: "Не ескеру керек: түсірілуді армандайды, сахнаны жақсы көреді, курсқа барады немесе басқа пікіріңіз бар ма?",
     normalize: (value) => value.replace(/\s+/g, " ").trim(),
     validate: (value) => value.length >= 2,
-    error: "Напишите хотя бы пару слов, чтобы менеджеру было проще сориентироваться."
+    error: "Менеджерге ыңғайлы болу үшін кемінде бірнеше сөз жазыңыз."
   }
 ];
 
 const STATIC_FAQ = {
-  age: "Кастингке негізінен 6-15 жас аралығындағы балалар қатыса алады. Если ребёнок чуть младше или старше, всё равно можно оставить заявку, а менеджер уточнит детали.",
-  process: "Запись проходит просто: AI-ассистент собирает короткую анкету, а затем отправляет заявку менеджеру в Telegram.",
-  generic: "Я могу сразу помочь записаться на кастинг или подсказать по возрасту, формату и следующему шагу."
+  age: "Кастингке негізінен 4-18 жас аралығындағы балалар қатыса алады. Егер бала сәл кіші немесе үлкен болса, бәрібір өтінім қалдыруға болады — менеджер нақтылайды.",
+  process: "Жазылу оңай: AI-көмекші қысқа анкета толтырады, содан кейін өтінімді менеджерге Telegram арқылы жібереді.",
+  generic: "Мен кастингке жазылуға немесе жас, формат және келесі қадам туралы кеңес беруге көмектесе аламын."
 };
 
 const DEFAULT_CHAT_PROVIDER = "gemini";
@@ -238,112 +238,16 @@ async function handleTts(request, env, corsHeaders) {
 }
 
 async function orchestrateChat({ sessionId, message, clientState, env }) {
-  const normalized = normalize(message);
   const lead = sanitizeLead(clientState.lead);
 
-  if (clientState.submittedAt && wantsFreshLead(normalized)) {
-    clientState = normalizeClientState({ lead: {}, leadActive: false, currentField: null, submittedAt: null });
-  }
-
-  if (clientState.submittedAt) {
-    return {
-      reply: "Заявка уже отправлена менеджеру. Если хотите оставить новую, напишите «новая заявка».",
-      lead,
-      leadActive: false,
-      currentField: null,
-      submittedAt: clientState.submittedAt,
-      summary: buildSummaryPayload(lead),
-      delivery: { channel: "telegram", ok: true }
-    };
-  }
-
-  if (clientState.leadActive || shouldStartLead(normalized)) {
-    return handleLeadConversation({ sessionId, message, clientState, lead, env });
-  }
-
-  if (mentionsAge(normalized)) {
-    return {
-      reply: STATIC_FAQ.age,
-      lead,
-      leadActive: false,
-      currentField: null,
-      submitted: false
-    };
-  }
-
-  if (mentionsProcess(normalized)) {
-    return {
-      reply: STATIC_FAQ.process,
-      lead,
-      leadActive: false,
-      currentField: null,
-      submitted: false
-    };
-  }
-
   const reply = await buildConversationalReply(message, env);
+
   return {
     reply,
     lead,
     leadActive: false,
     currentField: null,
     submitted: false
-  };
-}
-
-async function handleLeadConversation({ sessionId, message, clientState, lead, env }) {
-  if (!clientState.leadActive) {
-    const firstField = getNextMissingField(lead) || FIELD_DEFINITIONS[0].key;
-    return {
-      reply: `Отлично, начнём. Я задам несколько коротких вопросов и подготовлю заявку. ${getFieldDefinition(firstField).question}`,
-      lead,
-      leadActive: true,
-      currentField: firstField,
-      submitted: false
-    };
-  }
-
-  const currentField = clientState.currentField || getNextMissingField(lead) || FIELD_DEFINITIONS[0].key;
-  const field = getFieldDefinition(currentField);
-  const normalizedValue = typeof field.normalize === "function" ? field.normalize(message) : message.trim();
-
-  if (!field.validate(normalizedValue)) {
-    return {
-      reply: field.error,
-      lead,
-      leadActive: true,
-      currentField: field.key,
-      submitted: false
-    };
-  }
-
-  lead[field.key] = normalizedValue;
-  const nextField = getNextMissingField(lead);
-
-  if (nextField) {
-    return {
-      reply: `Принято. ${getFieldDefinition(nextField).question}`,
-      lead,
-      leadActive: true,
-      currentField: nextField,
-      submitted: false
-    };
-  }
-
-  const submittedAt = new Date().toISOString();
-  const delivery = await deliverLead({ lead, sessionId, env });
-
-  return {
-    reply: delivery.ok
-      ? "Готово. Я отправил заявку менеджеру в Telegram. В ближайшее время с вами свяжутся."
-      : "Готово. Заявка собрана, но Telegram пока не подключён. Менеджер сможет забрать её после настройки бота.",
-    lead,
-    leadActive: false,
-    currentField: null,
-    submitted: delivery.ok,
-    submittedAt,
-    summary: buildSummaryPayload(lead),
-    delivery
   };
 }
 
@@ -751,14 +655,14 @@ function buildProviderMessages(message, env) {
 function buildSystemPrompt(env) {
   return [
     `Сен ${env.PUBLIC_BRAND || "Meyram Cinema"} кастинг көмекшісісің.`,
-    "МАҢЫЗДЫ: Тек қазақ тілінде жауап бер. Ешқашан орысша немесе ағылшынша жауап берме.",
-    "Қарапайым, жылы, табиғи қазақ тілін қолдан. Тілдерді араластырма.",
-    "Жауаптарың қысқа, жылы және практикалық болсын. Әдетте 1-3 қысқа сөйлем.",
-    "Мақсатың — ата-аналарға балаларын кастингке тіркеуге көмектесу.",
-    "Әдеттегі жас 4-18, бірақ шектен шыққан жағдайларда да өтінім қалдыруға болады.",
-    "Егер пайдаланушы дайын болса, осы стильде шақыр: Егер қаласаңыз, қазір анкетаны бастайық.",
+    "МАҢЫЗДЫ: Тек қазақ тілінде жауап бер. Ешқашан орысша немесе ағылшынша жауап берме. Егер пайдаланушы орысша жазса — бәрібір қазақша жауап бер.",
+    "Қарапайым, жылы, табиғи қазақ тілін қолдан.",
+    "Жауаптарың қысқа, жылы және тілектес болсын. 1-3 сөйлем.",
+    "Сен ата-аналарға балаларын кино кастингіне тіркеуге көмектесесің.",
+    "Кастингке 4-18 жас аралығындағы балалар қатыса алады.",
+    "Пайдаланушымен еркін сөйлес, сұрақтарына жауап бер, кастинг туралы айт.",
+    "Егер пайдаланушы жазылғысы келсе — оның атын, баланың атын, жасын, қаласын, телефонын біртіндеп сұра. Бірден бәрін сұрама, табиғи сөйлес.",
     "Берілмеген бағаларды, мерзімдерді, уәделерді ойлап тапма.",
-    "Ішкі ойларды, жоспарларды немесе талдауларды ешқашан көрсетпе.",
     "<think> тегтерін немесе ішкі жазбаларды шығарма. Тек соңғы жауапты қайтар."
   ].join(" ");
 }
