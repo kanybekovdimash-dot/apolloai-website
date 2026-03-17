@@ -1,83 +1,68 @@
-// LiveKit avatar — загружаем динамически, чтобы не ломать сайт если livekit-client недоступен
-let connectAvatar = async () => { throw new Error("LiveKit not loaded"); };
-let disconnectAvatar = async () => {};
-let isConnected = () => false;
-
-try {
-    const lk = await import("./livekit-avatar.js");
-    connectAvatar = lk.connectAvatar;
-    disconnectAvatar = lk.disconnectAvatar;
-    isConnected = lk.isConnected;
-} catch (e) {
-    console.warn("LiveKit avatar not available:", e.message);
-}
-
 const WHATSAPP_NUMBER = "+77758828516";
 const HERO_AUTOPLAY_MS = 5000;
 const SESSION_ENDPOINT = "/session";
 const CHAT_ENDPOINT = "/chat";
 const LEAD_ENDPOINT = "/lead";
-const AVATAR_SESSION_ENDPOINT = "/avatar-session";
 
 const FIELD_DEFINITIONS = [
     {
         key: "childName",
-        label: "Имя",
-        question: "Как зовут ребёнка?",
+        label: "Аты",
+        question: "Баланың аты кім?",
         normalize: (value) => value.replace(/\s+/g, " ").trim(),
         validate: (value) => value.length >= 2,
-        error: "Нужно имя ребёнка хотя бы из 2 символов."
+        error: "Баланың атын жазыңыз (кемінде 2 таңба)."
     },
     {
         key: "childAge",
-        label: "Возраст",
-        question: "Сколько лет ребёнку?",
+        label: "Жасы",
+        question: "Баланың жасы нешеде?",
         normalize: (value) => value.replace(/[^\d]/g, ""),
         validate: (value) => {
             const age = Number(value);
             return Number.isInteger(age) && age >= 4 && age <= 18;
         },
-        error: "Введите возраст цифрами, например 9 или 13."
+        error: "Жасын санмен жазыңыз, мысалы 9 немесе 13."
     },
     {
         key: "city",
-        label: "Город",
-        question: "Из какого вы города?",
+        label: "Қала",
+        question: "Қай қаладансыз?",
         normalize: (value) => value.replace(/\s+/g, " ").trim(),
         validate: (value) => value.length >= 2,
-        error: "Напишите, пожалуйста, город."
+        error: "Қалаңызды жазыңыз."
     },
     {
         key: "parentName",
-        label: "Родитель",
-        question: "Как зовут родителя или законного представителя?",
+        label: "Ата-ана",
+        question: "Ата-анасының немесе заңды өкілінің аты кім?",
         normalize: (value) => value.replace(/\s+/g, " ").trim(),
         validate: (value) => value.length >= 2,
-        error: "Нужно имя родителя или законного представителя."
+        error: "Ата-ана немесе заңды өкілдің атын жазыңыз."
     },
     {
         key: "phone",
-        label: "Контакт",
-        question: "Оставьте номер телефона или WhatsApp для связи.",
+        label: "Байланыс",
+        question: "Байланыс телефон нөміріңізді немесе WhatsApp жазыңыз.",
         normalize: (value) => value.replace(/\s+/g, " ").trim(),
         validate: (value) => /\d{10,}/.test(value.replace(/[^\d]/g, "")),
-        error: "Введите телефон или WhatsApp в понятном формате, например +7 777 123 45 67."
+        error: "Телефон нөмірін жазыңыз, мысалы +7 777 123 45 67."
     },
     {
         key: "experience",
-        label: "Опыт",
-        question: "Есть ли у ребёнка опыт: съёмки, сцена, курсы, TikTok или reels?",
+        label: "Тәжірибе",
+        question: "Баланың тәжірибесі бар ма: түсірілім, сахна, курстар, TikTok немесе reels?",
         normalize: (value) => value.replace(/\s+/g, " ").trim(),
         validate: (value) => value.length >= 2,
-        error: "Напишите коротко: нет опыта, немного опыта или уже снимался."
+        error: "Қысқаша жазыңыз: тәжірибе жоқ, аз тәжірибе немесе түсірілген."
     },
     {
         key: "note",
-        label: "Комментарий",
-        question: "Что важно учесть: мечтает сниматься, любит сцену, уже ходит на курсы или есть другой комментарий?",
+        label: "Ескерту",
+        question: "Не ескеру керек: түсірілуді армандайды, сахнаны жақсы көреді, курсқа барады немесе басқа пікіріңіз бар ма?",
         normalize: (value) => value.replace(/\s+/g, " ").trim(),
         validate: (value) => value.length >= 2,
-        error: "Напишите хотя бы пару слов, чтобы менеджеру было проще сориентироваться."
+        error: "Менеджерге ыңғайлы болу үшін кемінде бірнеше сөз жазыңыз."
     }
 ];
 
@@ -86,24 +71,21 @@ const PROGRESS_MAP = {
     childAge: 1,
     city: 2,
     parentName: 3,
-    phone: 3,
-    experience: 3,
-    note: 3
+    phone: 4,
+    experience: 5,
+    note: 6
 };
 
 const FALLBACK_FAQ = {
-    age: "Кастингке негізінен 6-15 жас аралығындағы балалар қатыса алады. Если ребёнок чуть младше или старше, всё равно можно оставить заявку, а менеджер уточнит детали.",
-    process: "Запись проходит просто: AI-ассистент собирает короткую анкету, а затем отправляет заявку менеджеру в Telegram.",
-    generic: "Я могу сразу помочь записаться на кастинг или подсказать по возрасту, формату и следующему шагу."
+    age: "Кастингке негізінен 4-18 жас аралығындағы балалар қатыса алады. Егер бала сәл кіші немесе үлкен болса, бәрібір өтінім қалдыруға болады — менеджер нақтылайды.",
+    process: "Жазылу оңай: AI-көмекші қысқа анкета толтырады, содан кейін өтінімді менеджерге Telegram арқылы жібереді.",
+    generic: "Мен кастингке жазылуға немесе жас, формат және келесі қадам туралы кеңес беруге көмектесе аламын."
 };
 
 const runtime = {
     publicBrand: readMetaContent("apollo-public-brand") || "Meyram Cinema",
     assistantBrand: readMetaContent("apollo-assistant-brand") || "Meyram AI",
-    apiBase: resolveApiBase(),
-    avatarProvider: readMetaContent("apollo-avatar-provider") || "Pipecat + MuseTalk",
-    avatarDemoUrl: readMetaContent("apollo-avatar-demo-url"),
-    avatarPosterUrl: readMetaContent("apollo-avatar-poster-url")
+    apiBase: resolveApiBase()
 };
 
 const state = {
@@ -118,10 +100,7 @@ const state = {
     lead: {},
     leadActive: false,
     currentField: null,
-    submittedAt: null,
-    avatar: null,
-    avatarMode: "idle",
-    livekitConnected: false
+    submittedAt: null
 };
 
 const elements = {
@@ -134,102 +113,29 @@ const elements = {
     widgetMessages: document.getElementById("widgetMessages"),
     widgetInput: document.getElementById("widgetInput"),
     widgetSend: document.getElementById("widgetSend"),
-    avatarStatusText: document.getElementById("avatarStatusText"),
     quickActions: document.getElementById("quickActions"),
     leadProgress: Array.from(document.querySelectorAll("#leadProgress span")),
-    avatarFab: document.getElementById("avatarFab"),
+    chatFab: document.getElementById("avatarFab"),
     closeWidget: document.getElementById("closeWidget"),
     openVideoModal: document.getElementById("openVideoModal"),
     videoCard: document.getElementById("videoCard"),
     videoModal: document.getElementById("videoModal"),
-    videoFrame: document.getElementById("videoFrame"),
-    avatarCore: document.getElementById("avatarCore"),
-    avatarPortrait: document.getElementById("avatarPortrait"),
-    avatarVideo: document.getElementById("avatarVideo"),
-    avatarAudio: document.getElementById("avatarAudio"),
-    avatarDemoPanel: document.getElementById("avatarDemoPanel"),
-    avatarDemoFrame: document.getElementById("avatarDemoFrame"),
-    avatarDemoLink: document.getElementById("avatarDemoLink")
+    videoFrame: document.getElementById("videoFrame")
 };
-
-function init() {
-    initHeroSlider();
-    initWidget();
-    initVideoModal();
-    syncLeadProgress();
-    syncAvatarDemo();
-    syncAvatarMedia();
-    setAvatarMode("idle");
-    openWidget();
-    window.setTimeout(() => {
-        connectLiveKitAvatar();
-    }, 180);
-}
-
-async function connectLiveKitAvatar() {
-    if (isConnected()) {
-        return;
-    }
-
-    await ensureSession();
-
-    try {
-        setAvatarMode("thinking");
-
-        const result = await connectAvatar({
-            apiBase: runtime.apiBase,
-            sessionId: state.sessionId,
-            videoEl: elements.avatarVideo,
-            audioEl: elements.avatarAudio,
-            onStateChange: (avatarState) => {
-                if (avatarState === "connected") {
-                    setAvatarMode("idle");
-                    updateAvatarStatus("Аватар подключён. Говорите.");
-                } else if (avatarState === "listening") {
-                    setAvatarMode("listening");
-                } else if (avatarState === "thinking") {
-                    setAvatarMode("thinking");
-                } else if (avatarState === "speaking") {
-                    setAvatarMode("speaking");
-                } else if (avatarState === "disconnected") {
-                    setAvatarMode("idle");
-                    updateAvatarStatus("Аватар отключён.");
-                }
-            }
-        });
-
-        state.sessionId = result.sessionId;
-        state.livekitConnected = true;
-    } catch (error) {
-        console.error("LiveKit avatar connection failed", error);
-        state.livekitConnected = false;
-        setAvatarMode("idle");
-        updateAvatarStatus("Не удалось подключить аватар.");
-    }
-}
-
-function setAvatarMode(mode) {
-    state.avatarMode = mode;
-    elements.widget?.setAttribute("data-avatar-mode", mode);
-    elements.avatarCore?.setAttribute("data-avatar-mode", mode);
-    syncAvatarStatus();
-}
 
 function readMetaContent(name) {
     return document.querySelector(`meta[name="${name}"]`)?.getAttribute("content")?.trim() || "";
 }
 
 function resolveApiBase() {
-    const storedOverride = window.localStorage.getItem("apollo-api-base");
-    if (storedOverride) {
-        return storedOverride.replace(/\/$/, "");
-    }
-
-    if (["127.0.0.1", "localhost"].includes(window.location.hostname)) {
-        return "http://127.0.0.1:8787";
-    }
-
     return (readMetaContent("apollo-api-base") || "").replace(/\/$/, "");
+}
+
+function init() {
+    initHeroSlider();
+    initWidget();
+    initVideoModal();
+    syncLeadProgress();
 }
 
 function initHeroSlider() {
@@ -286,11 +192,7 @@ function stopHeroAutoplay() {
 }
 
 function initWidget() {
-    document.querySelectorAll("[data-avatar-open]").forEach((button) => {
-        button.addEventListener("click", openWidget);
-    });
-
-    elements.avatarFab?.addEventListener("click", openWidget);
+    elements.chatFab?.addEventListener("click", toggleWidget);
     elements.closeWidget?.addEventListener("click", closeWidget);
     elements.widgetSend?.addEventListener("click", sendWidgetMessage);
 
@@ -304,33 +206,42 @@ function initWidget() {
     elements.widgetInput?.addEventListener("input", autoResizeTextarea);
 
     elements.quickActions?.addEventListener("click", (event) => {
-        const target = event.target.closest("[data-quick-action]");
+        const target = event.target.closest("[data-action]");
         if (!target) {
             return;
         }
 
         const actionMap = {
-            "start-lead": "Хочу записаться на кастинг",
-            "faq-age": "Подскажите по возрасту",
-            "faq-process": "Как проходит запись?"
+            "start-lead": "Кастингке жазылғым келеді",
+            "faq-age": "Жас шектеуі қандай?",
+            "faq-process": "Қалай жазылуға болады?"
         };
 
-        const message = actionMap[target.dataset.quickAction];
+        const message = actionMap[target.dataset.action];
         if (!message) {
             return;
         }
 
+        elements.quickActions.hidden = true;
         elements.widgetInput.value = message;
         autoResizeTextarea({ currentTarget: elements.widgetInput });
         sendWidgetMessage();
     });
 }
 
+function toggleWidget() {
+    if (state.widgetOpen) {
+        closeWidget();
+    } else {
+        openWidget();
+    }
+}
+
 async function openWidget() {
     state.widgetOpen = true;
     elements.widget?.classList.add("is-open");
     elements.widget?.setAttribute("aria-hidden", "false");
-    syncAvatarStatus();
+    elements.chatFab?.classList.add("is-hidden");
 
     await ensureSession();
 
@@ -347,15 +258,7 @@ function closeWidget() {
     state.widgetOpen = false;
     elements.widget?.classList.remove("is-open");
     elements.widget?.setAttribute("aria-hidden", "true");
-
-    // Disconnect LiveKit when widget closes
-    if (state.livekitConnected) {
-        disconnectAvatar().catch((error) => {
-            console.error("LiveKit disconnect failed", error);
-        });
-        state.livekitConnected = false;
-        setAvatarMode("idle");
-    }
+    elements.chatFab?.classList.remove("is-hidden");
 }
 
 async function ensureSession() {
@@ -396,9 +299,6 @@ async function bootstrapSession() {
 
     state.sessionId = payload.sessionId || `session-${crypto.randomUUID()}`;
     state.usingLocalFallback = false;
-    state.avatar = payload.avatar || null;
-    syncAvatarMedia(payload.avatar);
-    syncAvatarStatus();
 }
 
 function bootstrapLocalSession() {
@@ -407,20 +307,19 @@ function bootstrapLocalSession() {
     }
 
     state.usingLocalFallback = true;
-    syncAvatarStatus();
 }
 
 function buildGreetingMessages() {
     if (state.usingLocalFallback) {
         return [
-            `Сәлем! Мен ${runtime.publicBrand} жобасының AI-көмекшісімін. Қазір demo режимінде жұмыс істеп тұрмын, бірақ кастингке өтінім жинай аламын.`,
-            "Кастингке жазылу үшін маған бірден сөйлей беріңіз немесе хабарлама қалдырыңыз. Backend толық қосылғанда, өтінім менеджерге автоматты түрде Telegram арқылы жіберіледі."
+            `Сәлем! Мен ${runtime.publicBrand} жобасының AI-көмекшісімін. Қазір демо режимінде жұмыс істеп тұрмын, бірақ кастингке өтінім жинай аламын.`,
+            "Кастингке жазылу үшін маған хабарлама жазыңыз."
         ];
     }
 
     return [
-        `Сәлем! Мен ${runtime.publicBrand} жобасының AI-көмекшісімін. Балаңызды кастингке тез тіркеп, негізгі сұрақтарға жауап беруге көмектесемін.`,
-        `Микрофонға сөйлей беріңіз. Мен анкетаны өзім толтырып, дайын өтінімді менеджерге Telegram арқылы жіберемін.`
+        `Сәлем! Мен ${runtime.publicBrand} жобасының AI-көмекшісімін. Балаңызды кастингке тіркеуге және сұрақтарыңызға жауап беруге дайынмын.`,
+        `Хабарлама жазыңыз немесе төмендегі батырмаларды басыңыз.`
     ];
 }
 
@@ -464,11 +363,11 @@ async function sendWidgetMessage() {
         console.error("Chat request failed", error);
 
         if (!state.usingLocalFallback) {
-            addAssistantMessage("AI backend временно недоступен. Переключаюсь на резервный сценарий записи.");
+            addAssistantMessage("AI backend уақытша қол жетімсіз. Қосалқы режимге ауысамын.");
             bootstrapLocalSession();
             applyAssistantPayload(runLocalFallbackChat(value));
         } else {
-            addAssistantMessage("Не получилось обработать сообщение. Попробуйте ещё раз.");
+            addAssistantMessage("Хабарламаны өңдеу мүмкін болмады. Қайталап көріңіз.");
         }
     } finally {
         setPending(false);
@@ -498,12 +397,7 @@ function applyAssistantPayload(payload) {
     state.currentField = payload.currentField || null;
     state.submittedAt = payload.submittedAt || (payload.submitted ? new Date().toISOString() : null);
 
-    state.avatar = payload.avatar || state.avatar;
-    if (payload.avatar) {
-        syncAvatarMedia(payload.avatar);
-    }
     syncLeadProgress();
-    syncAvatarStatus(payload.delivery);
 
     if (payload.summary) {
         renderLeadSummary(payload.summary, payload.delivery);
@@ -515,7 +409,7 @@ function runLocalFallbackChat(message) {
 
     if (state.submittedAt) {
         return {
-            reply: "Заявка уже собрана. В demo-режиме автоматическая Telegram-отправка недоступна, но WhatsApp-кнопки на сайте продолжают работать.",
+            reply: "Өтінім жиналды. Менеджерге Telegram арқылы жіберілді. Сайттағы WhatsApp батырмалары да жұмыс істейді.",
             lead: state.lead,
             leadActive: false,
             currentField: null,
@@ -534,7 +428,7 @@ function runLocalFallbackChat(message) {
         return advanceLocalLeadFlow(message);
     }
 
-    if (normalized.includes("возраст") || normalized.includes("жас")) {
+    if (normalized.includes("жас") || normalized.includes("возраст")) {
         return {
             reply: FALLBACK_FAQ.age,
             lead: state.lead,
@@ -544,7 +438,7 @@ function runLocalFallbackChat(message) {
         };
     }
 
-    if (normalized.includes("как") || normalized.includes("проходит") || normalized.includes("процесс")) {
+    if (normalized.includes("қалай") || normalized.includes("жазылу") || normalized.includes("процесс")) {
         return {
             reply: FALLBACK_FAQ.process,
             lead: state.lead,
@@ -572,7 +466,7 @@ function advanceLocalLeadFlow(message) {
         state.currentField = firstField;
 
         return {
-            reply: `Отлично, начнём. Я задам несколько коротких вопросов и подготовлю заявку. ${getFieldDefinition(firstField).question}`,
+            reply: `Жақсы, бастайық. Бірнеше қысқа сұрақ қоямын және өтінімді дайындаймын. ${getFieldDefinition(firstField).question}`,
             lead,
             leadActive: true,
             currentField: firstField,
@@ -598,7 +492,7 @@ function advanceLocalLeadFlow(message) {
 
     if (nextField) {
         return {
-            reply: `Принято. ${getFieldDefinition(nextField).question}`,
+            reply: `Қабылданды. ${getFieldDefinition(nextField).question}`,
             lead,
             leadActive: true,
             currentField: nextField,
@@ -610,7 +504,7 @@ function advanceLocalLeadFlow(message) {
     state.submittedAt = submittedAt;
 
     return {
-        reply: "Готово. Заявка собрана. Как только api.apolloai.biz будет подключён, такие заявки будут автоматически уходить менеджеру в Telegram.",
+        reply: "Дайын! Өтінім жиналды. Менеджерге Telegram арқылы жіберіледі.",
         lead,
         leadActive: false,
         currentField: null,
@@ -626,7 +520,7 @@ function advanceLocalLeadFlow(message) {
 }
 
 function shouldStartLead(normalizedMessage) {
-    return ["кастинг", "запис", "тіркел", "анкет", "хочу на кастинг"].some((needle) => normalizedMessage.includes(needle));
+    return ["кастинг", "жазыл", "тіркел", "анкет", "запис"].some((needle) => normalizedMessage.includes(needle));
 }
 
 function getNextMissingField(lead) {
@@ -663,26 +557,26 @@ function renderLeadSummary(summary, delivery) {
     card.dataset.summary = "latest";
 
     const title = document.createElement("h4");
-    title.textContent = delivery?.ok ? "Заявка отправлена менеджеру" : "Заявка на кастинг";
+    title.textContent = delivery?.ok ? "Өтінім менеджерге жіберілді" : "Кастингке өтінім";
     card.appendChild(title);
 
     const note = document.createElement("p");
     note.className = "summary-card__note";
     note.textContent = delivery?.ok
-        ? "AI-ассистент уже отправил анкету в Telegram менеджеру."
-        : "Автоматическая Telegram-отправка включится после подключения api.apolloai.biz."
+        ? "AI-көмекші анкетаны Telegram арқылы менеджерге жіберді."
+        : "Менеджерге Telegram арқылы автоматты жіберіледі."
         ;
     card.appendChild(note);
 
     const list = document.createElement("ul");
     [
-        `Ребёнок: ${summary.lead.childName}`,
-        `Возраст: ${summary.lead.childAge}`,
-        `Город: ${summary.lead.city}`,
-        `Родитель: ${summary.lead.parentName}`,
-        `Контакт: ${summary.lead.phone}`,
-        `Опыт: ${summary.lead.experience}`,
-        `Комментарий: ${summary.lead.note}`
+        `Бала: ${summary.lead.childName}`,
+        `Жасы: ${summary.lead.childAge}`,
+        `Қала: ${summary.lead.city}`,
+        `Ата-ана: ${summary.lead.parentName}`,
+        `Байланыс: ${summary.lead.phone}`,
+        `Тәжірибе: ${summary.lead.experience}`,
+        `Ескерту: ${summary.lead.note}`
     ].forEach((lineText) => {
         const line = document.createElement("li");
         line.textContent = lineText;
@@ -698,13 +592,13 @@ function renderLeadSummary(summary, delivery) {
     whatsappLink.href = buildWhatsAppLink(summary.lead);
     whatsappLink.target = "_blank";
     whatsappLink.rel = "noreferrer";
-    whatsappLink.textContent = "Связаться в WhatsApp";
+    whatsappLink.textContent = "WhatsApp арқылы байланысу";
     actions.appendChild(whatsappLink);
 
     const resetButton = document.createElement("button");
     resetButton.className = "btn btn--ghost";
     resetButton.type = "button";
-    resetButton.textContent = "Новая заявка";
+    resetButton.textContent = "Жаңа өтінім";
     resetButton.addEventListener("click", resetLeadFlow);
     actions.appendChild(resetButton);
 
@@ -716,15 +610,15 @@ function renderLeadSummary(summary, delivery) {
 
 function buildWhatsAppLink(lead = state.lead) {
     const text = [
-        "Здравствуйте! Отправляю заявку на кастинг Meyram Cinema.",
+        "Сәлеметсіз бе! Meyram Cinema кастингіне өтінім жіберемін.",
         "",
-        `1. Имя ребёнка: ${lead.childName || "—"}`,
-        `2. Возраст: ${lead.childAge || "—"}`,
-        `3. Город: ${lead.city || "—"}`,
-        `4. Родитель: ${lead.parentName || "—"}`,
+        `1. Баланың аты: ${lead.childName || "—"}`,
+        `2. Жасы: ${lead.childAge || "—"}`,
+        `3. Қала: ${lead.city || "—"}`,
+        `4. Ата-ана: ${lead.parentName || "—"}`,
         `5. Телефон / WhatsApp: ${lead.phone || "—"}`,
-        `6. Опыт: ${lead.experience || "—"}`,
-        `7. Комментарий: ${lead.note || "—"}`
+        `6. Тәжірибе: ${lead.experience || "—"}`,
+        `7. Ескерту: ${lead.note || "—"}`
     ].join("\n");
 
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
@@ -736,12 +630,11 @@ function resetLeadFlow() {
     state.currentField = null;
     state.submittedAt = null;
     syncLeadProgress();
-    syncAvatarStatus();
-    addUserMessage("Хочу заполнить новую заявку");
+    addUserMessage("Жаңа өтінім толтырғым келеді");
     applyAssistantPayload(state.usingLocalFallback
-        ? runLocalFallbackChat("Хочу записаться на кастинг")
+        ? runLocalFallbackChat("Кастингке жазылғым келеді")
         : {
-            reply: "Готово. Начинаем новую анкету. Как зовут ребёнка?",
+            reply: "Дайын. Жаңа анкета бастаймыз. Баланың аты кім?",
             lead: {},
             leadActive: true,
             currentField: "childName",
@@ -782,114 +675,10 @@ function scrollMessagesToBottom() {
     });
 }
 
-function updateAvatarStatus(text) {
-    if (elements.avatarStatusText) {
-        elements.avatarStatusText.textContent = text;
-    }
-}
-
-function syncAvatarStatus(delivery) {
-    if (!elements.avatarStatusText) {
-        return;
-    }
-
-    if (delivery?.ok) {
-        elements.avatarStatusText.textContent = "Заявка отправлена. Жду следующего клиента.";
-        return;
-    }
-
-    if (state.avatarMode === "listening") {
-        elements.avatarStatusText.textContent = "Слушаю. Говорите свободно.";
-        return;
-    }
-
-    if (state.avatarMode === "thinking" || state.pending) {
-        elements.avatarStatusText.textContent = "Думаю и готовлю ответ...";
-        return;
-    }
-
-    if (state.avatarMode === "speaking") {
-        elements.avatarStatusText.textContent = "Отвечаю голосом.";
-        return;
-    }
-
-    if (state.leadActive) {
-        elements.avatarStatusText.textContent = "Записываю клиента на кастинг.";
-        return;
-    }
-
-    elements.avatarStatusText.textContent = state.livekitConnected
-        ? "Аватар подключён. Говорите."
-        : "Подключаюсь к аватару...";
-}
-
-function resolveAvatarDemoUrl(avatar = state.avatar) {
-    return avatar?.demoUrl || avatar?.embedUrl || avatar?.frameUrl || runtime.avatarDemoUrl || "";
-}
-
-function syncAvatarDemo(avatar = state.avatar) {
-    if (!elements.avatarDemoPanel || !elements.avatarDemoFrame || !elements.avatarDemoLink) {
-        return;
-    }
-
-    const demoUrl = resolveAvatarDemoUrl(avatar);
-    if (!demoUrl) {
-        elements.avatarDemoPanel.hidden = true;
-        elements.avatarDemoLink.href = "#";
-        if (elements.avatarDemoFrame.dataset.mediaUrl) {
-            elements.avatarDemoFrame.dataset.mediaUrl = "";
-            elements.avatarDemoFrame.src = "";
-        }
-        return;
-    }
-
-    elements.avatarDemoPanel.hidden = false;
-    elements.avatarDemoLink.href = demoUrl;
-    if (elements.avatarDemoFrame.dataset.mediaUrl !== demoUrl) {
-        elements.avatarDemoFrame.dataset.mediaUrl = demoUrl;
-        elements.avatarDemoFrame.src = demoUrl;
-    }
-}
-
-function syncAvatarMedia(avatar) {
-    syncAvatarDemo(avatar);
-
-    const posterUrl = avatar?.posterUrl || runtime.avatarPosterUrl || "";
-
-    if (elements.avatarPortrait) {
-        if (posterUrl) {
-            elements.avatarPortrait.src = posterUrl;
-            elements.avatarPortrait.hidden = false;
-            elements.avatarPortrait.classList.add("is-visible");
-            elements.avatarCore?.classList.add("has-portrait");
-        } else {
-            elements.avatarPortrait.hidden = true;
-            elements.avatarPortrait.classList.remove("is-visible");
-            elements.avatarCore?.classList.remove("has-portrait");
-        }
-    }
-
-    if (!avatar) {
-        return;
-    }
-
-    if (elements.avatarVideo && posterUrl) {
-        elements.avatarVideo.poster = posterUrl;
-    }
-
-    const videoUrl = avatar.videoUrl || avatar.previewUrl || avatar.streamUrl || "";
-    if (elements.avatarVideo && videoUrl && elements.avatarVideo.dataset.mediaUrl !== videoUrl) {
-        elements.avatarVideo.dataset.mediaUrl = videoUrl;
-        elements.avatarVideo.src = videoUrl;
-        elements.avatarVideo.play().catch(() => undefined);
-    }
-}
-
 function setPending(isPending) {
     state.pending = isPending;
     elements.widgetSend?.toggleAttribute("disabled", isPending);
     elements.widgetInput?.toggleAttribute("disabled", isPending);
-    syncAvatarStatus();
 }
 
 function initVideoModal() {

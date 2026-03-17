@@ -11,9 +11,6 @@
     <meta name="apollo-public-brand" content="Meyram Cinema">
     <meta name="apollo-assistant-brand" content="Meyram AI">
     <meta name="apollo-api-base" content="https://apolloai-meyram-api.kanybekovdimash.workers.dev">
-    <meta name="apollo-avatar-provider" content="Pipecat + MuseTalk">
-    <meta name="apollo-avatar-demo-url" content="">
-    <meta name="apollo-avatar-poster-url" content="">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -297,33 +294,55 @@
             <span>Шолу</span>
         </a>
     </nav>
-    <aside class="casting-widget casting-widget--dock is-open" id="castingWidget" aria-label="Voice casting assistant" aria-hidden="false">
-        <div class="casting-widget__hero casting-widget__hero--dock">
-            <div class="avatar-stage">
-                <div class="avatar-stage__ring"></div>
-                <div class="avatar-stage__core" id="avatarCore" role="button" tabindex="0" aria-label="Говорить с ассистентом">
-                    <div class="avatar-stage__demo" id="avatarDemoPanel" hidden>
-                        <iframe
-                            id="avatarDemoFrame"
-                            src=""
-                            title="PersonaLive avatar"
-                            loading="eager"
-                            referrerpolicy="no-referrer"
-                            allow="camera; microphone; autoplay; clipboard-read; clipboard-write"
-                            allowfullscreen
-                        ></iframe>
-                    </div>
-                    <img class="avatar-stage__portrait" id="avatarPortrait" src="" alt="AI avatar portrait" hidden>
-                    <img class="avatar-stage__logo" src="https://meyram.agency/themes/meyram/assets/img/logo.svg" alt="meyram киностудио">
-                    <video id="avatarVideo" autoplay loop playsinline muted poster="https://meyram.agency/themes/meyram/assets/img/logo.svg"></video>
-                    <audio id="avatarAudio" autoplay></audio>
-                    <a id="avatarDemoLink" href="#" target="_blank" rel="noreferrer" hidden>Open avatar demo</a>
-                </div>
-                <div class="avatar-stage__badge">
-                    <span class="avatar-stage__dot"></span>
-                    <span id="avatarStatusText">Онлайн. Жду клиента. Микрофон готов к разговору.</span>
-                </div>
+    <!-- Chat FAB button -->
+    <button class="chat-fab" id="avatarFab" type="button" aria-label="Открыть чат">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+    </button>
+
+    <!-- Chat widget panel -->
+    <aside class="casting-widget" id="castingWidget" aria-label="AI casting assistant" aria-hidden="true">
+        <div class="casting-widget__header">
+            <div>
+                <p class="casting-widget__eyebrow">AI көмекші</p>
+                <h3>Meyram AI</h3>
             </div>
+            <button class="icon-circle icon-circle--light" id="closeWidget" type="button" aria-label="Закрыть чат">
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+
+        <div class="lead-progress" id="leadProgress">
+            <span>Аты</span>
+            <span>Жасы</span>
+            <span>Қала</span>
+            <span>Ата-ана</span>
+            <span>Байланыс</span>
+            <span>Тәжірибе</span>
+            <span>Ескерту</span>
+        </div>
+
+        <div class="casting-widget__messages" id="widgetMessages"></div>
+
+        <div class="casting-widget__intro" id="quickActions">
+            <p>Сәлем! Мен Meyram Cinema AI-көмекшісімін. Балаңызды кастингке тіркеуге көмектесемін.</p>
+            <div class="quick-actions">
+                <button class="quick-actions__btn btn btn--ghost" type="button" data-action="start-lead">Кастингке жазылу</button>
+                <button class="quick-actions__btn btn btn--ghost" type="button" data-action="faq-age">Жас шектеуі</button>
+                <button class="quick-actions__btn btn btn--ghost" type="button" data-action="faq-process">Қалай жазылуға болады?</button>
+            </div>
+        </div>
+
+        <div class="casting-widget__composer">
+            <textarea id="widgetInput" rows="1" placeholder="Хабарлама жазыңыз..."></textarea>
+            <button class="composer-send icon-circle" id="widgetSend" type="button" aria-label="Отправить">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
         </div>
     </aside>
 

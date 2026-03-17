@@ -769,6 +769,36 @@ a {
     font-weight: 800;
 }
 
+.chat-fab {
+    position: fixed;
+    right: 22px;
+    bottom: 24px;
+    z-index: 46;
+    width: 64px;
+    height: 64px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #c8a264, var(--gold-deep));
+    color: #ffffff;
+    box-shadow: 0 12px 32px rgba(185, 148, 87, 0.4);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chat-fab:hover {
+    transform: scale(1.08);
+    box-shadow: 0 16px 40px rgba(185, 148, 87, 0.5);
+}
+
+.chat-fab.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.8);
+}
+
 .avatar-fab {
     position: fixed;
     right: 22px;
@@ -843,7 +873,7 @@ a {
     color: #ffffff;
     box-shadow: 0 28px 70px rgba(0, 0, 0, 0.36);
     opacity: 0;
-    pointer-events: none;
+    pointer-events: auto;
     transform: translateY(22px) scale(0.96);
     transform-origin: bottom right;
     transition: opacity 0.28s ease, transform 0.28s ease;
@@ -1476,6 +1506,11 @@ a {
         padding: 24px;
     }
 
+    .chat-fab {
+        right: 14px;
+        bottom: 86px;
+    }
+
     .avatar-fab {
         right: 14px;
         left: 14px;
@@ -2072,7 +2107,7 @@ a {
     transform: scale(0.72);
     transform-origin: top left;
     background: #050505;
-    pointer-events: none;
+    pointer-events: auto;
 }
 
 .avatar-stage__demo::before,
