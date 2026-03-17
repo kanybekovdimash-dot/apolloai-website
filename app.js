@@ -118,6 +118,7 @@ const elements = {
     leadProgress: Array.from(document.querySelectorAll("#leadProgress span")),
     chatFab: document.getElementById("avatarFab"),
     closeWidget: document.getElementById("closeWidget"),
+    openCastingTest: document.getElementById("openCastingTest"),
     openVideoModal: document.getElementById("openVideoModal"),
     videoCard: document.getElementById("videoCard"),
     videoModal: document.getElementById("videoModal"),
@@ -195,6 +196,11 @@ function stopHeroAutoplay() {
 function initWidget() {
     elements.chatFab?.addEventListener("click", toggleWidget);
     elements.closeWidget?.addEventListener("click", closeWidget);
+    elements.openCastingTest?.addEventListener("click", () => {
+        if (typeof window.openCastingTest === "function") {
+            window.openCastingTest();
+        }
+    });
     elements.widgetSend?.addEventListener("mousedown", (event) => {
         event.preventDefault();
         sendWidgetMessage();

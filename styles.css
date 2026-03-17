@@ -2155,5 +2155,220 @@ a {
     }
 }
 
+/* Casting test header button & actions */
+.casting-widget__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 
+.icon-circle--casting {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(185, 148, 87, 0.4);
+    background: rgba(185, 148, 87, 0.15);
+    color: #c8a264;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
 
+.icon-circle--casting:hover {
+    background: rgba(185, 148, 87, 0.3);
+    transform: scale(1.1);
+}
+
+/* Casting overlay */
+.casting-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.95);
+    color: #ffffff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.casting-overlay.is-open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.casting-overlay__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.casting-overlay__header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.casting-overlay__close {
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.casting-overlay__close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.casting-overlay__body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    padding: 24px;
+    overflow: auto;
+}
+
+.casting-overlay__video-wrap {
+    position: relative;
+    width: 480px;
+    max-width: 50vw;
+    aspect-ratio: 4 / 3;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #111;
+}
+
+.casting-overlay__video-wrap video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+}
+
+.casting-overlay__video-wrap canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.casting-overlay__panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    min-width: 280px;
+}
+
+.casting-overlay__emotion-label {
+    margin: 0;
+    font-size: 36px;
+    font-weight: 800;
+    text-align: center;
+}
+
+.casting-overlay__emotion-desc {
+    margin: 0;
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
+}
+
+.casting-overlay__meter {
+    position: relative;
+    width: 100%;
+    max-width: 300px;
+    height: 40px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+.casting-overlay__meter-fill {
+    height: 100%;
+    border-radius: 20px;
+    background: linear-gradient(90deg, #c8a264, #e0c080);
+    transition: width 0.15s ease;
+    width: 0%;
+}
+
+.casting-overlay__meter-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.casting-overlay__timer {
+    font-size: 24px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    min-height: 32px;
+}
+
+.casting-overlay__start-btn {
+    padding: 14px 40px;
+    border: none;
+    border-radius: 30px;
+    background: linear-gradient(135deg, #c8a264, var(--gold-deep, #9a7635));
+    color: #ffffff;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.casting-overlay__start-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 24px rgba(185, 148, 87, 0.4);
+}
+
+.casting-overlay__results {
+    width: 100%;
+    max-width: 300px;
+}
+
+.casting-result-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 16px;
+}
+
+@media (max-width: 768px) {
+    .casting-overlay__body {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .casting-overlay__video-wrap {
+        width: 100%;
+        max-width: none;
+    }
+
+    .casting-overlay__emotion-label {
+        font-size: 28px;
+    }
+}

@@ -311,10 +311,18 @@
                 <p class="casting-widget__eyebrow">AI көмекші</p>
                 <h3>Meyram AI</h3>
             </div>
-            <button class="icon-circle icon-circle--light" id="closeWidget" type="button" aria-label="Закрыть чат">
-                <span></span>
-                <span></span>
-            </button>
+            <div class="casting-widget__header-actions">
+                <button class="icon-circle icon-circle--casting" id="openCastingTest" type="button" aria-label="Кастинг тесті" title="Кастинг тесті">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                        <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                </button>
+                <button class="icon-circle icon-circle--light" id="closeWidget" type="button" aria-label="Закрыть чат">
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
         </div>
 
 
@@ -352,6 +360,7 @@
     </div>
 
     <script type="module" src="/app.js"></script>
+    <script src="/casting-test.js"></script>
 </body>
 </html>
 
