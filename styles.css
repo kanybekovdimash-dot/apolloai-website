@@ -2188,7 +2188,7 @@ a {
     z-index: 9999;
     display: flex;
     flex-direction: column;
-    background: rgba(0, 0, 0, 0.95);
+    background: #000000;
     color: #ffffff;
     opacity: 0;
     pointer-events: none;

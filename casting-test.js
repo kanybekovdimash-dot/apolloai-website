@@ -33,7 +33,7 @@ const CASTING_EMOTIONS = [
         key: "fear",
         label: "Қорқыңыз!",
         description: "Қорқып тұрған бет жасаңыз",
-        blendshapes: ["eyeWideLeft", "eyeWideRight", "browInnerUp", "mouthOpen"]
+        blendshapes: ["eyeWideLeft", "eyeWideRight", "browInnerUp", "jawOpen"]
     },
     {
         key: "disgust",
@@ -140,10 +140,10 @@ function loadFaceLandmarker() {
 
     return import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18").then(function(vision) {
         return vision.FilesetResolver.forVisionTasks(MEDIAPIPE_CDN).then(function(filesetResolver) {
+            // Try GPU first, fallback to CPU
             return vision.FaceLandmarker.createFromOptions(filesetResolver, {
                 baseOptions: {
-                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-                    delegate: "GPU"
+                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
                 },
                 outputFaceBlendshapes: true,
                 outputFacialTransformationMatrixes: false,
@@ -153,6 +153,7 @@ function loadFaceLandmarker() {
         });
     }).then(function(landmarker) {
         faceLandmarker = landmarker;
+        console.log("FaceLandmarker loaded successfully");
     });
 }
 
@@ -178,7 +179,8 @@ function startCastingTest() {
         maxScore: 0,
         startTime: 0,
         animFrame: null,
-        lastTimestamp: -1
+        lastTimestamp: -1,
+        frameSkip: 0
     };
 
     // Countdown 3-2-1
@@ -237,8 +239,12 @@ function detectLoop(emotion) {
         return;
     }
 
+    // Skip every other frame to reduce CPU load
+    castingState.frameSkip = (castingState.frameSkip + 1) % 3;
+    var shouldDetect = castingState.frameSkip === 0;
+
     try {
-        if (faceLandmarker && video && video.readyState >= 2) {
+        if (shouldDetect && faceLandmarker && video && video.readyState >= 2) {
             var nowMs = Math.round(performance.now());
             if (nowMs <= castingState.lastTimestamp) {
                 nowMs = castingState.lastTimestamp + 1;
@@ -257,6 +263,7 @@ function detectLoop(emotion) {
                 var pct = Math.round(score * 100);
                 document.getElementById("castingMeterFill").style.width = pct + "%";
                 document.getElementById("castingMeterText").textContent = pct + "%";
+                document.getElementById("castingEmotionDesc").textContent = emotion.description;
 
                 var fill = document.getElementById("castingMeterFill");
                 if (pct >= 70) {
@@ -266,10 +273,14 @@ function detectLoop(emotion) {
                 } else {
                     fill.style.background = "linear-gradient(90deg, #f44336, #ef5350)";
                 }
+            } else {
+                document.getElementById("castingEmotionDesc").textContent = "Бетіңізді камераға көрсетіңіз";
             }
+        } else if (!faceLandmarker) {
+            document.getElementById("castingEmotionDesc").textContent = "Модель жүктелмеді...";
         }
     } catch (e) {
-        // Detection error — skip this frame, continue loop
+        console.error("Detection error:", e);
     }
 
     castingState.animFrame = requestAnimationFrame(function() { detectLoop(emotion); });
