@@ -252,34 +252,40 @@ function detectLoop(emotion) {
             castingState.lastTimestamp = nowMs;
             var result = faceLandmarker.detectForVideo(video, nowMs);
 
-            if (result && result.faceBlendshapes && result.faceBlendshapes.length > 0) {
+            var desc = document.getElementById("castingEmotionDesc");
+            var hasFaces = result && result.faceBlendshapes && result.faceBlendshapes.length > 0;
+
+            if (hasFaces) {
                 var shapes = result.faceBlendshapes[0].categories;
                 var score = computeEmotionScore(shapes, emotion);
 
+                // Show live score (not just max)
+                var livePct = Math.round(score * 100);
                 if (score > castingState.maxScore) {
                     castingState.maxScore = score;
                 }
 
-                var pct = Math.round(score * 100);
-                document.getElementById("castingMeterFill").style.width = pct + "%";
-                document.getElementById("castingMeterText").textContent = pct + "%";
-                document.getElementById("castingEmotionDesc").textContent = emotion.description;
+                var bestPct = Math.round(castingState.maxScore * 100);
+                document.getElementById("castingMeterFill").style.width = bestPct + "%";
+                document.getElementById("castingMeterText").textContent = bestPct + "%";
+                desc.textContent = emotion.description + " (қазір: " + livePct + "%)";
 
                 var fill = document.getElementById("castingMeterFill");
-                if (pct >= 70) {
+                if (bestPct >= 70) {
                     fill.style.background = "linear-gradient(90deg, #4caf50, #66bb6a)";
-                } else if (pct >= 40) {
+                } else if (bestPct >= 40) {
                     fill.style.background = "linear-gradient(90deg, #ff9800, #ffa726)";
                 } else {
                     fill.style.background = "linear-gradient(90deg, #f44336, #ef5350)";
                 }
             } else {
-                document.getElementById("castingEmotionDesc").textContent = "Бетіңізді камераға көрсетіңіз";
+                desc.textContent = "Бетіңізді камераға көрсетіңіз";
             }
-        } else if (!faceLandmarker) {
+        } else if (shouldDetect && !faceLandmarker) {
             document.getElementById("castingEmotionDesc").textContent = "Модель жүктелмеді...";
         }
     } catch (e) {
+        document.getElementById("castingEmotionDesc").textContent = "Қате: " + (e.message || e);
         console.error("Detection error:", e);
     }
 
