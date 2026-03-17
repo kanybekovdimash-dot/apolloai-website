@@ -29,7 +29,7 @@ function createVideoRecordOverlay() {
                     '<span class="casting-overlay__meter-text" id="videoRecTimer">0:00 / 2:00</span>' +
                 '</div>' +
                 '<div id="videoRecActions" style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">' +
-                    '<button class="casting-overlay__start-btn" id="videoRecStartBtn" type="button">Жазуды бастау</button>' +
+                    '<button class="casting-overlay__start-btn" id="videoRecStartBtn" type="button" style="background:linear-gradient(135deg,#4caf50,#66bb6a)">Видеоны бастау</button>' +
                 '</div>' +
             '</div>' +
         '</div>';
@@ -237,7 +237,7 @@ function retryRecording() {
         document.getElementById("videoRecDesc").textContent = "Өзіңіз туралы қысқа видео жазыңыз";
 
         var actions = document.getElementById("videoRecActions");
-        actions.innerHTML = '<button class="casting-overlay__start-btn" id="videoRecStartBtn" type="button">Жазуды бастау</button>';
+        actions.innerHTML = '<button class="casting-overlay__start-btn" id="videoRecStartBtn" type="button" style="background:linear-gradient(135deg,#4caf50,#66bb6a)">Видеоны бастау</button>';
         document.getElementById("videoRecStartBtn").addEventListener("click", toggleRecording);
 
         document.getElementById("videoRecProgress").style.width = "0%";

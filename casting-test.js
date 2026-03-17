@@ -77,7 +77,7 @@ function createCastingOverlay() {
                 '</div>' +
                 '<div class="casting-overlay__timer" id="castingTimer"></div>' +
                 '<div class="casting-overlay__results" id="castingResults" hidden></div>' +
-                '<button class="casting-overlay__start-btn" id="castingStartBtn" type="button" disabled>Бастау</button>' +
+                '<button class="casting-overlay__start-btn" id="castingStartBtn" type="button" disabled style="background:linear-gradient(135deg,#4caf50,#66bb6a)">Бастау</button>' +
             '</div>' +
         '</div>';
 
