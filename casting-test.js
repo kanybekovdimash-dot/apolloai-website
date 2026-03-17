@@ -177,7 +177,8 @@ function startCastingTest() {
         scores: [],
         maxScore: 0,
         startTime: 0,
-        animFrame: null
+        animFrame: null,
+        lastTimestamp: -1
     };
 
     // Countdown 3-2-1
@@ -236,30 +237,39 @@ function detectLoop(emotion) {
         return;
     }
 
-    if (faceLandmarker && video.readyState >= 2) {
-        var result = faceLandmarker.detectForVideo(video, performance.now());
-
-        if (result.faceBlendshapes && result.faceBlendshapes.length > 0) {
-            var shapes = result.faceBlendshapes[0].categories;
-            var score = computeEmotionScore(shapes, emotion);
-
-            if (score > castingState.maxScore) {
-                castingState.maxScore = score;
+    try {
+        if (faceLandmarker && video && video.readyState >= 2) {
+            var nowMs = Math.round(performance.now());
+            if (nowMs <= castingState.lastTimestamp) {
+                nowMs = castingState.lastTimestamp + 1;
             }
+            castingState.lastTimestamp = nowMs;
+            var result = faceLandmarker.detectForVideo(video, nowMs);
 
-            var pct = Math.round(score * 100);
-            document.getElementById("castingMeterFill").style.width = pct + "%";
-            document.getElementById("castingMeterText").textContent = pct + "%";
+            if (result && result.faceBlendshapes && result.faceBlendshapes.length > 0) {
+                var shapes = result.faceBlendshapes[0].categories;
+                var score = computeEmotionScore(shapes, emotion);
 
-            var fill = document.getElementById("castingMeterFill");
-            if (pct >= 70) {
-                fill.style.background = "linear-gradient(90deg, #4caf50, #66bb6a)";
-            } else if (pct >= 40) {
-                fill.style.background = "linear-gradient(90deg, #ff9800, #ffa726)";
-            } else {
-                fill.style.background = "linear-gradient(90deg, #f44336, #ef5350)";
+                if (score > castingState.maxScore) {
+                    castingState.maxScore = score;
+                }
+
+                var pct = Math.round(score * 100);
+                document.getElementById("castingMeterFill").style.width = pct + "%";
+                document.getElementById("castingMeterText").textContent = pct + "%";
+
+                var fill = document.getElementById("castingMeterFill");
+                if (pct >= 70) {
+                    fill.style.background = "linear-gradient(90deg, #4caf50, #66bb6a)";
+                } else if (pct >= 40) {
+                    fill.style.background = "linear-gradient(90deg, #ff9800, #ffa726)";
+                } else {
+                    fill.style.background = "linear-gradient(90deg, #f44336, #ef5350)";
+                }
             }
         }
+    } catch (e) {
+        // Detection error — skip this frame, continue loop
     }
 
     castingState.animFrame = requestAnimationFrame(function() { detectLoop(emotion); });
