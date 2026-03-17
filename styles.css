@@ -785,7 +785,7 @@ a {
     color: #ffffff;
     box-shadow: 0 12px 32px rgba(185, 148, 87, 0.4);
     cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
 .chat-fab:hover {
