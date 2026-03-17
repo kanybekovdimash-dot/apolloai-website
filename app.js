@@ -100,7 +100,8 @@ const state = {
     lead: {},
     leadActive: false,
     currentField: null,
-    submittedAt: null
+    submittedAt: null,
+    chatHistory: []
 };
 
 const elements = {
@@ -340,6 +341,7 @@ async function sendWidgetMessage() {
     }
 
     addUserMessage(value);
+    state.chatHistory.push({ role: "user", content: value });
     elements.widgetInput.value = "";
     elements.widgetInput.style.height = "auto";
 
@@ -354,10 +356,14 @@ async function sendWidgetMessage() {
                 body: JSON.stringify({
                     sessionId: state.sessionId,
                     message: value,
+                    history: state.chatHistory.slice(-20),
                     clientState: exportClientState()
                 })
             });
 
+        if (typeof payload.reply === "string" && payload.reply.trim()) {
+            state.chatHistory.push({ role: "assistant", content: payload.reply.trim() });
+        }
         applyAssistantPayload(payload);
     } catch (error) {
         console.error("Chat request failed", error);

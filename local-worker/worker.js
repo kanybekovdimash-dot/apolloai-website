@@ -154,7 +154,8 @@ async function handleChat(request, env, corsHeaders) {
   }
 
   const clientState = normalizeClientState(payload.clientState);
-  const result = await orchestrateChat({ sessionId, message, clientState, env });
+  const history = Array.isArray(payload.history) ? payload.history : [];
+  const result = await orchestrateChat({ sessionId, message, history, clientState, env });
 
   return json(
     {
@@ -237,10 +238,10 @@ async function handleTts(request, env, corsHeaders) {
   });
 }
 
-async function orchestrateChat({ sessionId, message, clientState, env }) {
+async function orchestrateChat({ sessionId, message, history, clientState, env }) {
   const lead = sanitizeLead(clientState.lead);
 
-  const reply = await buildConversationalReply(message, env);
+  const reply = await buildConversationalReply(message, history, env);
 
   return {
     reply,
@@ -314,16 +315,16 @@ async function sendTelegramLead(lead, sessionId, env) {
   };
 }
 
-async function buildConversationalReply(message, env) {
+async function buildConversationalReply(message, history, env) {
   try {
-    const reply = await chatWithProvider({ message, env, provider: getChatProvider(env) });
+    const reply = await chatWithProvider({ message, history, env, provider: getChatProvider(env) });
     return sanitizeAssistantText(reply) || STATIC_FAQ.generic;
   } catch {
     return STATIC_FAQ.generic;
   }
 }
 
-async function chatWithProvider({ message, env, provider }) {
+async function chatWithProvider({ message, history, env, provider }) {
   if (provider === "ollama") {
     if (!env.OLLAMA_BASE_URL) {
       throw new Error("OLLAMA_BASE_URL is not configured");
@@ -398,19 +399,34 @@ async function chatWithProvider({ message, env, provider }) {
   }
 
   if (provider === "gemini") {
-    return chatWithGemini(message, env);
+    return chatWithGemini(message, history, env);
   }
 
   return chatWithGroq(message, env);
 }
 
-async function chatWithGemini(message, env) {
+async function chatWithGemini(message, history, env) {
   if (!env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is not configured");
   }
 
   const model = env.GEMINI_CHAT_MODEL || env.CHAT_MODEL || DEFAULT_CHAT_MODEL;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+
+  const contents = [];
+  if (Array.isArray(history)) {
+    for (const msg of history.slice(-20)) {
+      if (msg.role === "user" || msg.role === "assistant") {
+        contents.push({
+          role: msg.role === "assistant" ? "model" : "user",
+          parts: [{ text: String(msg.content || "") }]
+        });
+      }
+    }
+  }
+  if (!contents.length || contents[contents.length - 1].parts[0].text !== message) {
+    contents.push({ role: "user", parts: [{ text: message }] });
+  }
 
   const response = await fetch(endpoint, {
     method: "POST",
@@ -421,12 +437,7 @@ async function chatWithGemini(message, env) {
       system_instruction: {
         parts: [{ text: buildSystemPrompt(env) }]
       },
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: message }]
-        }
-      ],
+      contents,
       generationConfig: {
         temperature: 0.35,
         maxOutputTokens: 420
