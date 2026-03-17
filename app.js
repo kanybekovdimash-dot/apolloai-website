@@ -195,7 +195,10 @@ function stopHeroAutoplay() {
 function initWidget() {
     elements.chatFab?.addEventListener("click", toggleWidget);
     elements.closeWidget?.addEventListener("click", closeWidget);
-    elements.widgetSend?.addEventListener("click", sendWidgetMessage);
+    elements.widgetSend?.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        sendWidgetMessage();
+    });
 
     elements.widgetInput?.addEventListener("keydown", (event) => {
         if (event.key === "Enter" && !event.shiftKey) {
@@ -257,9 +260,18 @@ async function openWidget() {
 
 function closeWidget() {
     state.widgetOpen = false;
+    state.initializedChat = false;
+    state.chatHistory = [];
+    state.lead = {};
+    state.leadActive = false;
+    state.currentField = null;
+    state.submittedAt = null;
     elements.widget?.classList.remove("is-open");
     elements.widget?.setAttribute("aria-hidden", "true");
     elements.chatFab?.classList.remove("is-hidden");
+    if (elements.widgetMessages) {
+        elements.widgetMessages.innerHTML = "";
+    }
 }
 
 async function ensureSession() {
@@ -369,6 +381,7 @@ async function sendWidgetMessage() {
         }
     } finally {
         setPending(false);
+        elements.widgetInput?.focus();
     }
 }
 
@@ -393,7 +406,11 @@ function applyAssistantPayload(payload) {
     state.lead = payload.lead || state.lead;
     state.leadActive = Boolean(payload.leadActive);
     state.currentField = payload.currentField || null;
-    state.submittedAt = payload.submittedAt || (payload.submitted ? new Date().toISOString() : null);
+    if (payload.submitted) {
+        state.submittedAt = new Date().toISOString();
+    } else if (payload.submittedAt) {
+        state.submittedAt = payload.submittedAt;
+    }
 
     syncLeadProgress();
 
@@ -676,7 +693,6 @@ function scrollMessagesToBottom() {
 function setPending(isPending) {
     state.pending = isPending;
     elements.widgetSend?.toggleAttribute("disabled", isPending);
-    elements.widgetInput?.toggleAttribute("disabled", isPending);
 }
 
 function initVideoModal() {
