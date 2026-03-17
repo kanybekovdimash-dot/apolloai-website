@@ -252,6 +252,13 @@ function detectLoop(emotion) {
             castingState.lastTimestamp = nowMs;
             var result = faceLandmarker.detectForVideo(video, nowMs);
 
+            // Draw face contours on canvas
+            if (result && result.faceLandmarks && result.faceLandmarks.length > 0) {
+                drawFaceLandmarks(result.faceLandmarks[0]);
+            } else {
+                drawFaceLandmarks(null);
+            }
+
             var desc = document.getElementById("castingEmotionDesc");
             var hasFaces = result && result.faceBlendshapes && result.faceBlendshapes.length > 0;
 
@@ -380,6 +387,98 @@ function sendCastingResultsToChat(scores, totalScore) {
             widgetSend.click();
         }, 300);
     }
+}
+
+/* ── Face Landmark Drawing ── */
+// MediaPipe Face Mesh landmark indices for key face features
+var FACE_CONTOURS = {
+    // Lips outer
+    lipsOuter: [61,146,91,181,84,17,314,405,321,375,291,409,270,269,267,0,37,39,40,185,61],
+    // Lips inner
+    lipsInner: [78,95,88,178,87,14,317,402,318,324,308,415,310,311,312,13,82,81,80,191,78],
+    // Left eye
+    leftEye: [33,7,163,144,145,153,154,155,133,173,157,158,159,160,161,246,33],
+    // Right eye
+    rightEye: [362,382,381,380,374,373,390,249,263,466,388,387,386,385,384,398,362],
+    // Left eyebrow
+    leftBrow: [70,63,105,66,107,55,65,52,53,46],
+    // Right eyebrow
+    rightBrow: [300,293,334,296,336,285,295,282,283,276],
+    // Face oval
+    faceOval: [10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109,10],
+    // Nose bridge
+    noseBridge: [168,6,197,195,5],
+    // Nose bottom
+    noseBottom: [98,97,2,326,327]
+};
+
+var CONTOUR_STYLES = {
+    lipsOuter:  { color: "rgba(255, 100, 120, 0.7)", width: 2 },
+    lipsInner:  { color: "rgba(255, 130, 150, 0.5)", width: 1.5 },
+    leftEye:    { color: "rgba(100, 200, 255, 0.6)", width: 1.5 },
+    rightEye:   { color: "rgba(100, 200, 255, 0.6)", width: 1.5 },
+    leftBrow:   { color: "rgba(200, 162, 100, 0.6)", width: 2 },
+    rightBrow:  { color: "rgba(200, 162, 100, 0.6)", width: 2 },
+    faceOval:   { color: "rgba(200, 200, 200, 0.25)", width: 1 },
+    noseBridge:  { color: "rgba(180, 180, 200, 0.4)", width: 1 },
+    noseBottom:  { color: "rgba(180, 180, 200, 0.4)", width: 1 }
+};
+
+function drawFaceLandmarks(landmarks) {
+    var canvas = document.getElementById("castingCanvas");
+    var video = document.getElementById("castingVideo");
+    if (!canvas || !video) return;
+
+    var ctx = canvas.getContext("2d");
+    var w = video.videoWidth || 640;
+    var h = video.videoHeight || 480;
+
+    if (canvas.width !== w) canvas.width = w;
+    if (canvas.height !== h) canvas.height = h;
+
+    ctx.clearRect(0, 0, w, h);
+
+    if (!landmarks || !landmarks.length) return;
+
+    var pts = landmarks;
+
+    Object.keys(FACE_CONTOURS).forEach(function(key) {
+        var indices = FACE_CONTOURS[key];
+        var style = CONTOUR_STYLES[key];
+        if (!style) return;
+
+        ctx.beginPath();
+        ctx.strokeStyle = style.color;
+        ctx.lineWidth = style.width;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+
+        for (var i = 0; i < indices.length; i++) {
+            var idx = indices[i];
+            if (idx >= pts.length) continue;
+            // Mirror X because video is mirrored via CSS
+            var x = (1 - pts[idx].x) * w;
+            var y = pts[idx].y * h;
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        ctx.stroke();
+    });
+
+    // Draw glow dots on key points (lips corners, eye centers)
+    var glowPoints = [61, 291, 33, 263, 1]; // lip corners, eye outer corners, nose tip
+    ctx.fillStyle = "rgba(200, 162, 100, 0.5)";
+    glowPoints.forEach(function(idx) {
+        if (idx >= pts.length) return;
+        var x = (1 - pts[idx].x) * w;
+        var y = pts[idx].y * h;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+    });
 }
 
 // Global access
