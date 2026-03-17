@@ -101,7 +101,166 @@ function toggleRecording() {
     }
 }
 
+function showCountdown(callback) {
+    var videoWrap = document.querySelector(".casting-overlay__video-wrap");
+    if (!videoWrap) { callback(); return; }
+
+    // Create countdown overlay
+    var cdOverlay = document.createElement("div");
+    cdOverlay.id = "countdownOverlay";
+    cdOverlay.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:100;overflow:hidden;";
+
+    // Film leader circle (outer ring with tick marks)
+    var circle = document.createElement("div");
+    circle.id = "countdownCircle";
+    circle.style.cssText = "width:220px;height:220px;border-radius:50%;border:6px solid #c8a264;position:relative;display:flex;align-items:center;justify-content:center;transition:transform 0.8s cubic-bezier(0.4,0,0.2,1);";
+
+    // Tick marks around circle (like film leader)
+    for (var t = 0; t < 12; t++) {
+        var tick = document.createElement("div");
+        var angle = t * 30;
+        tick.style.cssText = "position:absolute;width:3px;height:14px;background:#c8a264;top:4px;left:50%;transform:translateX(-50%) rotate(" + angle + "deg);transform-origin:1.5px 106px;";
+        circle.appendChild(tick);
+    }
+
+    // Cross lines (film leader style)
+    var crossH = document.createElement("div");
+    crossH.style.cssText = "position:absolute;width:100%;height:2px;background:rgba(200,162,100,0.4);top:50%;left:0;";
+    circle.appendChild(crossH);
+    var crossV = document.createElement("div");
+    crossV.style.cssText = "position:absolute;height:100%;width:2px;background:rgba(200,162,100,0.4);left:50%;top:0;";
+    circle.appendChild(crossV);
+
+    // Sweeping arc (countdown wedge)
+    var arcSvg = document.createElement("div");
+    arcSvg.innerHTML = '<svg width="220" height="220" style="position:absolute;top:-6px;left:-6px;"><circle cx="110" cy="110" r="104" fill="none" stroke="#c8a264" stroke-width="4" stroke-dasharray="653.45" stroke-dashoffset="0" id="countdownArc" style="transition:stroke-dashoffset 1s linear;transform:rotate(-90deg);transform-origin:center;" opacity="0.5"/></svg>';
+    circle.appendChild(arcSvg);
+
+    // Number in center
+    var num = document.createElement("div");
+    num.id = "countdownNum";
+    num.style.cssText = "font-size:90px;font-weight:900;color:#c8a264;font-family:'Arial Black',Impact,sans-serif;z-index:2;text-shadow:0 0 20px rgba(200,162,100,0.5);line-height:1;";
+    num.textContent = "3";
+    circle.appendChild(num);
+
+    cdOverlay.appendChild(circle);
+
+    // Film grain effect
+    var grain = document.createElement("div");
+    grain.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;opacity:0.08;pointer-events:none;background:url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"200\" height=\"200\"><filter id=\"n\"><feTurbulence baseFrequency=\"0.9\" numOctaves=\"4\" stitchTiles=\"stitch\"/></filter><rect width=\"200\" height=\"200\" filter=\"url(%23n)\" opacity=\"1\"/></svg>');";
+    cdOverlay.appendChild(grain);
+
+    // Film scratches (vertical lines)
+    for (var s = 0; s < 3; s++) {
+        var scratch = document.createElement("div");
+        scratch.style.cssText = "position:absolute;width:1px;height:100%;background:rgba(255,255,255,0.15);left:" + (20 + Math.random() * 60) + "%;animation:filmScratch " + (0.3 + Math.random() * 0.4) + "s ease-in-out infinite;";
+        cdOverlay.appendChild(scratch);
+    }
+
+    // Add film scratch animation
+    if (!document.getElementById("countdownStyles")) {
+        var style = document.createElement("style");
+        style.id = "countdownStyles";
+        style.textContent =
+            "@keyframes filmScratch{0%,100%{opacity:0}50%{opacity:0.2}}" +
+            "@keyframes countdownPulse{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}" +
+            "@keyframes countdownFlicker{0%{opacity:0.85}25%{opacity:1}50%{opacity:0.9}75%{opacity:1}100%{opacity:0.85}}";
+        document.head.appendChild(style);
+    }
+
+    videoWrap.style.position = "relative";
+    videoWrap.appendChild(cdOverlay);
+
+    // Beep sound using AudioContext
+    function playBeep(freq, duration) {
+        try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = freq;
+            osc.type = "square";
+            gain.gain.value = 0.15;
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+            osc.stop(ctx.currentTime + duration);
+        } catch(e) {}
+    }
+
+    var count = 3;
+    var arc = document.getElementById("countdownArc");
+    var circumference = 653.45;
+
+    function doCount() {
+        var numEl = document.getElementById("countdownNum");
+        var circleEl = document.getElementById("countdownCircle");
+        if (!numEl || !circleEl) return;
+
+        if (count <= 0) {
+            // Flash white and go!
+            cdOverlay.style.background = "rgba(255,255,255,0.9)";
+            cdOverlay.style.transition = "background 0.15s, opacity 0.3s";
+            numEl.textContent = "🎬";
+            numEl.style.fontSize = "60px";
+            numEl.style.color = "#333";
+            circleEl.style.border = "6px solid #333";
+            playBeep(1200, 0.3);
+
+            setTimeout(function() {
+                cdOverlay.style.opacity = "0";
+                setTimeout(function() {
+                    if (cdOverlay.parentNode) cdOverlay.parentNode.removeChild(cdOverlay);
+                    callback();
+                }, 300);
+            }, 400);
+            return;
+        }
+
+        numEl.textContent = count;
+        numEl.style.animation = "countdownPulse 0.4s ease-out";
+        cdOverlay.style.animation = "countdownFlicker 0.5s";
+
+        // Rotate the circle clockwise
+        var rotation = (3 - count) * 120;
+        circleEl.style.transform = "rotate(" + rotation + "deg)";
+
+        // Arc sweep
+        if (arc) {
+            var offset = circumference * (1 - (3 - count) / 3);
+            arc.style.strokeDashoffset = offset;
+        }
+
+        playBeep(800, 0.15);
+
+        setTimeout(function() {
+            if (numEl) numEl.style.animation = "";
+            if (cdOverlay) cdOverlay.style.animation = "";
+        }, 450);
+
+        count--;
+        setTimeout(doCount, 1000);
+    }
+
+    doCount();
+}
+
 function startRecording() {
+    if (!videoRecState || !videoRecState.stream) return;
+
+    // Disable button during countdown
+    var startBtn = document.getElementById("videoRecStartBtn");
+    if (startBtn) startBtn.disabled = true;
+
+    document.getElementById("videoRecStatus").textContent = "Дайындалыңыз!";
+    document.getElementById("videoRecDesc").textContent = "";
+
+    showCountdown(function() {
+        actuallyStartRecording();
+    });
+}
+
+function actuallyStartRecording() {
     if (!videoRecState || !videoRecState.stream) return;
 
     videoRecState.chunks = [];
@@ -141,8 +300,12 @@ function startRecording() {
     recorder.start(1000);
     videoRecState.recording = true;
 
-    document.getElementById("videoRecStartBtn").textContent = "Тоқтату";
-    document.getElementById("videoRecStartBtn").style.background = "#f44336";
+    var startBtn = document.getElementById("videoRecStartBtn");
+    if (startBtn) {
+        startBtn.disabled = false;
+        startBtn.textContent = "Тоқтату";
+        startBtn.style.background = "#f44336";
+    }
     document.getElementById("videoRecStatus").textContent = "Жазылуда...";
     document.getElementById("videoRecDesc").textContent = "Өзіңіз туралы айтыңыз";
 
