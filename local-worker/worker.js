@@ -66,8 +66,8 @@ const STATIC_FAQ = {
   generic: "Мен кастингке жазылуға немесе жас, формат және келесі қадам туралы кеңес беруге көмектесе аламын."
 };
 
-const DEFAULT_CHAT_PROVIDER = "gemini";
-const DEFAULT_CHAT_MODEL = "gemini-3-flash-preview";
+const DEFAULT_CHAT_PROVIDER = "groq";
+const DEFAULT_CHAT_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 const DEFAULT_STT_PROVIDER = "groq";
 const DEFAULT_STT_MODEL = "whisper-large-v3";
 const DEFAULT_TTS_PROVIDER = "yandex";
@@ -116,6 +116,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/avatar-session") {
         return handleAvatarSession(request, env, corsHeaders);
+      }
+
+      if (request.method === "POST" && url.pathname === "/video") {
+        return handleVideo(request, env, corsHeaders);
       }
 
       return json({ ok: false, error: "Not found" }, 404, corsHeaders);
@@ -241,14 +245,39 @@ async function handleTts(request, env, corsHeaders) {
 async function orchestrateChat({ sessionId, message, history, clientState, env }) {
   const lead = sanitizeLead(clientState.lead);
 
-  const reply = await buildConversationalReply(message, history, env);
+  const rawReply = await buildConversationalReply(message, history, env);
+
+  // Extract lead data from the reply's embedded JSON
+  const { cleanReply, extractedLead } = parseLeadFromReply(rawReply, lead);
+
+  // Send to Telegram if we have at least childName and phone, and not already submitted
+  let submitted = clientState.submittedAt ? true : false;
+  let submittedAt = clientState.submittedAt || null;
+
+  if (
+    extractedLead.childName &&
+    extractedLead.phone &&
+    !clientState.submittedAt
+  ) {
+    try {
+      const summary = buildSummaryPayload(extractedLead);
+      const delivery = await sendTelegramLead(summary.lead, sessionId, env);
+      if (delivery.ok) {
+        submitted = true;
+        submittedAt = new Date().toISOString();
+      }
+    } catch {
+      // Telegram delivery failed — not critical, continue chatting
+    }
+  }
 
   return {
-    reply,
-    lead,
+    reply: cleanReply,
+    lead: extractedLead,
     leadActive: false,
     currentField: null,
-    submitted: false
+    submitted,
+    submittedAt
   };
 }
 
@@ -267,17 +296,17 @@ async function sendTelegramLead(lead, sessionId, env) {
   }
 
   const text = [
-    "<b>Новая заявка на кастинг</b>",
+    "🎬 <b>Жаңа кастинг өтінімі</b>",
     `Бренд: <b>${escapeHtml(env.PUBLIC_BRAND || "Meyram Cinema")}</b>`,
     `Сессия: <code>${escapeHtml(sessionId)}</code>`,
     "",
-    `<b>Ребёнок:</b> ${escapeHtml(lead.childName)}`,
-    `<b>Возраст:</b> ${escapeHtml(lead.childAge)}`,
-    `<b>Город:</b> ${escapeHtml(lead.city)}`,
-    `<b>Родитель:</b> ${escapeHtml(lead.parentName)}`,
-    `<b>Контакт:</b> ${escapeHtml(lead.phone)}`,
-    `<b>Опыт:</b> ${escapeHtml(lead.experience)}`,
-    `<b>Комментарий:</b> ${escapeHtml(lead.note)}`
+    `<b>Бала:</b> ${escapeHtml(lead.childName)}`,
+    `<b>Жасы:</b> ${escapeHtml(lead.childAge)}`,
+    `<b>Қала:</b> ${escapeHtml(lead.city)}`,
+    `<b>Ата-ана:</b> ${escapeHtml(lead.parentName)}`,
+    `<b>Байланыс:</b> ${escapeHtml(lead.phone)}`,
+    `<b>Тәжірибе:</b> ${escapeHtml(lead.experience)}`,
+    `<b>Ескерту:</b> ${escapeHtml(lead.note)}`
   ].join("\n");
 
   const body = {
@@ -321,6 +350,29 @@ async function buildConversationalReply(message, history, env) {
     return sanitizeAssistantText(reply) || STATIC_FAQ.generic;
   } catch {
     return STATIC_FAQ.generic;
+  }
+}
+
+function parseLeadFromReply(reply, existingLead) {
+  const leadMatch = reply.match(/<!--LEAD_DATA:(.*?)-->/s);
+  let cleanReply = reply.replace(/<!--LEAD_DATA:.*?-->/gs, "").trim();
+
+  if (!leadMatch) {
+    return { cleanReply, extractedLead: existingLead };
+  }
+
+  try {
+    const extracted = JSON.parse(leadMatch[1]);
+    const merged = { ...existingLead };
+    for (const field of FIELD_DEFINITIONS) {
+      const val = String(extracted[field.key] || "").trim();
+      if (val) {
+        merged[field.key] = val;
+      }
+    }
+    return { cleanReply, extractedLead: merged };
+  } catch {
+    return { cleanReply, extractedLead: existingLead };
   }
 }
 
@@ -398,64 +450,24 @@ async function chatWithProvider({ message, history, env, provider }) {
     return extractTextFromGenericResponse(data) || STATIC_FAQ.generic;
   }
 
-  if (provider === "gemini") {
-    return chatWithGemini(message, history, env);
-  }
-
-  return chatWithGroq(message, env);
+  return chatWithGroq(message, history, env);
 }
 
-async function chatWithGemini(message, history, env) {
-  if (!env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not configured");
+async function chatWithGroq(message, history, env) {
+  if (!env.GROQ_API_KEY) {
+    throw new Error("GROQ_API_KEY is not configured");
   }
 
-  const model = env.GEMINI_CHAT_MODEL || env.CHAT_MODEL || DEFAULT_CHAT_MODEL;
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
-
-  const contents = [];
+  const messages = [{ role: "system", content: buildSystemPrompt(env) }];
   if (Array.isArray(history)) {
     for (const msg of history.slice(-20)) {
       if (msg.role === "user" || msg.role === "assistant") {
-        contents.push({
-          role: msg.role === "assistant" ? "model" : "user",
-          parts: [{ text: String(msg.content || "") }]
-        });
+        messages.push({ role: msg.role, content: String(msg.content || "") });
       }
     }
   }
-  if (!contents.length || contents[contents.length - 1].parts[0].text !== message) {
-    contents.push({ role: "user", parts: [{ text: message }] });
-  }
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json; charset=utf-8"
-    },
-    body: JSON.stringify({
-      system_instruction: {
-        parts: [{ text: buildSystemPrompt(env) }]
-      },
-      contents,
-      generationConfig: {
-        temperature: 0.35,
-        maxOutputTokens: 420
-      }
-    })
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error?.message || "Gemini chat request failed");
-  }
-
-  return extractTextFromGenericResponse(data) || STATIC_FAQ.generic;
-}
-
-async function chatWithGroq(message, env) {
-  if (!env.GROQ_API_KEY) {
-    throw new Error("GROQ_API_KEY is not configured");
+  if (!messages.length || messages[messages.length - 1].content !== message) {
+    messages.push({ role: "user", content: message });
   }
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -468,7 +480,7 @@ async function chatWithGroq(message, env) {
       model: env.GROQ_CHAT_MODEL || env.CHAT_MODEL || DEFAULT_CHAT_MODEL,
       temperature: 0.35,
       max_tokens: 420,
-      messages: buildProviderMessages(message, env)
+      messages
     })
   });
 
@@ -664,18 +676,38 @@ function buildProviderMessages(message, env) {
 }
 
 function buildSystemPrompt(env) {
-  return [
-    `Сен ${env.PUBLIC_BRAND || "Meyram Cinema"} кастинг көмекшісісің.`,
-    "МАҢЫЗДЫ: Тек қазақ тілінде жауап бер. Ешқашан орысша немесе ағылшынша жауап берме. Егер пайдаланушы орысша жазса — бәрібір қазақша жауап бер.",
-    "Қарапайым, жылы, табиғи қазақ тілін қолдан.",
-    "Жауаптарың қысқа, жылы және тілектес болсын. 1-3 сөйлем.",
-    "Сен ата-аналарға балаларын кино кастингіне тіркеуге көмектесесің.",
-    "Кастингке 4-18 жас аралығындағы балалар қатыса алады.",
-    "Пайдаланушымен еркін сөйлес, сұрақтарына жауап бер, кастинг туралы айт.",
-    "Егер пайдаланушы жазылғысы келсе — оның атын, баланың атын, жасын, қаласын, телефонын біртіндеп сұра. Бірден бәрін сұрама, табиғи сөйлес.",
-    "Берілмеген бағаларды, мерзімдерді, уәделерді ойлап тапма.",
-    "<think> тегтерін немесе ішкі жазбаларды шығарма. Тек соңғы жауапты қайтар."
-  ].join(" ");
+  return `Сен ${env.PUBLIC_BRAND || "Meyram Cinema"} кастинг көмекшісісің. Сенің атың Мейрам AI.
+
+ТІЛ: Тек қазақ тілінде жауап бер. Ешқашан орысша немесе ағылшынша жауап берме. Егер пайдаланушы орысша жазса — бәрібір қазақша жауап бер.
+
+МІНЕЗ: Сен жылы, достық, тірі адамдай сөйлейсің. Қысқа, табиғи жауаптар бер (1-3 сөйлем). Эмоция қос, қуан, мақта, қолда.
+
+КАСТИНГ АҚПАРАТЫ:
+- Кастингке 4-18 жас аралығындағы балалар қатыса алады
+- Тіркелу тегін
+- Берілмеген бағаларды, мерзімдерді, уәделерді ойлап тапма
+
+ДЕРЕКТЕР ЖИНАУ:
+Пайдаланушымен еркін сөйлес, бірақ біртіндеп мына деректерді жина:
+1. Баланың аты
+2. Баланың жасы
+3. Қаласы
+4. Ата-ана есімі
+5. Телефон нөмірі (МАҢЫЗДЫ! Міндетті түрде сұра: "Телефон нөміріңізді жазыңыз, менеджер хабарласады")
+6. Тәжірибесі бар ма (сахна, TikTok, курс, т.б.)
+7. Қосымша ескерту
+
+ЕРЕЖЕ: Бірден бәрін сұрама! Бір-екіден сұра, табиғи сөйлес. Телефонды міндетті сұра.
+
+ДЕРЕКТЕР ЖІБЕРІЛГЕННЕН КЕЙІН:
+Егер барлық деректер жиналса — пайдаланушыны құттықта, "менеджер жақын арада хабарласады" де. Содан кейін еркін сөйлесуді жалғастыр — сұрақтарға жауап бер, кеңес бер, әңгімелес. Сен тірі адамдай жұмыс істейсің, тоқтама!
+
+<think> тегтерін немесе ішкі жазбаларды шығарма.
+
+ТЕХНИКАЛЫҚ ТАПСЫРМА (пайдаланушыға көрсетпе):
+Жауаптың ең соңына міндетті түрде мына форматта JSON қос:
+<!--LEAD_DATA:{"childName":"","childAge":"","city":"","parentName":"","phone":"","experience":"","note":""}-->
+Сөйлесуде айтылған деректерді JSON-ға толтыр. Белгісіз өрістерді бос қалдыр (""). Ойлап тапма. Бұл блок ӘРҚАШАН болуы керек.`;
 }
 
 function sanitizeAssistantText(text) {
@@ -1082,4 +1114,48 @@ function escapeXml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
+}
+
+async function handleVideo(request, env, corsHeaders) {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
+    return json({ ok: false, error: "Telegram is not configured" }, 500, corsHeaders);
+  }
+
+  const formData = await request.formData();
+  const videoFile = formData.get("video");
+  const sessionId = formData.get("sessionId") || "unknown";
+
+  if (!videoFile || !(videoFile instanceof File)) {
+    return json({ ok: false, error: "No video file provided" }, 400, corsHeaders);
+  }
+
+  const maxSize = 50 * 1024 * 1024; // 50MB Telegram limit
+  if (videoFile.size > maxSize) {
+    return json({ ok: false, error: "Видео тым үлкен (50MB дейін)" }, 400, corsHeaders);
+  }
+
+  const tgForm = new FormData();
+  tgForm.append("chat_id", env.TELEGRAM_CHAT_ID);
+  tgForm.append("video", videoFile, videoFile.name || "video.webm");
+  tgForm.append("caption", `🎬 Видео визитка\nСессия: ${sessionId}`);
+
+  if (env.TELEGRAM_THREAD_ID) {
+    tgForm.append("message_thread_id", env.TELEGRAM_THREAD_ID);
+  }
+
+  const response = await fetch(
+    `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendVideo`,
+    { method: "POST", body: tgForm }
+  );
+
+  const data = await response.json();
+  if (!response.ok || !data.ok) {
+    return json(
+      { ok: false, error: data.description || "Telegram sendVideo failed" },
+      502,
+      corsHeaders
+    );
+  }
+
+  return json({ ok: true, message: "Video sent to Telegram" }, 200, corsHeaders);
 }

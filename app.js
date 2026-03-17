@@ -119,6 +119,7 @@ const elements = {
     chatFab: document.getElementById("avatarFab"),
     closeWidget: document.getElementById("closeWidget"),
     openCastingTest: document.getElementById("openCastingTest"),
+    openVideoRecord: document.getElementById("openVideoRecord"),
     openVideoModal: document.getElementById("openVideoModal"),
     videoCard: document.getElementById("videoCard"),
     videoModal: document.getElementById("videoModal"),
@@ -199,6 +200,11 @@ function initWidget() {
     elements.openCastingTest?.addEventListener("click", () => {
         if (typeof window.openCastingTest === "function") {
             window.openCastingTest();
+        }
+    });
+    elements.openVideoRecord?.addEventListener("click", () => {
+        if (typeof window.openVideoRecord === "function") {
+            window.openVideoRecord();
         }
     });
     elements.widgetSend?.addEventListener("mousedown", (event) => {
