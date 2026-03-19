@@ -18,3 +18,10 @@ wrangler.toml
 local-worker/.dev.vars
 local-worker/.cloudflare.env
 local-worker/.wrangler/
+
+admin-dist/
+output/
+pyserver*.log
+tmp_*.py
+.claude/
+avatar-portrait.png

@@ -78,7 +78,7 @@ const PROGRESS_MAP = {
 
 const FALLBACK_FAQ = {
     age: "Кастингке негізінен 4-18 жас аралығындағы балалар қатыса алады. Егер бала сәл кіші немесе үлкен болса, бәрібір өтінім қалдыруға болады — менеджер нақтылайды.",
-    process: "Жазылу оңай: AI-көмекші қысқа анкета толтырады, содан кейін өтінімді менеджерге Telegram арқылы жібереді.",
+    process: "Жазылу оңай: AI-көмекші қысқа анкета толтырады, содан кейін өтінімді кастинг жүйесіне сақтайды.",
     generic: "Мен кастингке жазылуға немесе жас, формат және келесі қадам туралы кеңес беруге көмектесе аламын."
 };
 
@@ -123,7 +123,8 @@ const elements = {
     openVideoModal: document.getElementById("openVideoModal"),
     videoCard: document.getElementById("videoCard"),
     videoModal: document.getElementById("videoModal"),
-    videoFrame: document.getElementById("videoFrame")
+    videoFrame: document.getElementById("videoFrame"),
+    navLinks: Array.from(document.querySelectorAll('.main-nav a[href^="#"], .mobile-dock a[href^="#"]')).filter((link) => !link.classList.contains("mobile-dock__center"))
 };
 
 function readMetaContent(name) {
@@ -136,9 +137,72 @@ function resolveApiBase() {
 
 function init() {
     initHeroSlider();
+    initNavigation();
     initWidget();
     initVideoModal();
     syncLeadProgress();
+}
+
+function initNavigation() {
+    if (!elements.navLinks.length) {
+        return;
+    }
+
+    elements.navLinks.forEach((link) => {
+        link.addEventListener("click", (event) => {
+            const href = link.getAttribute("href") || "";
+            if (!href.startsWith("#")) {
+                return;
+            }
+
+            const target = document.querySelector(href);
+            if (!target) {
+                return;
+            }
+
+            event.preventDefault();
+            scrollToSection(target);
+            setActiveNav(href);
+            history.replaceState(null, "", href);
+        });
+    });
+
+    window.addEventListener("scroll", syncNavToScroll, { passive: true });
+    window.addEventListener("resize", syncNavToScroll);
+    syncNavToScroll();
+}
+
+function scrollToSection(target) {
+    const headerOffset = (document.querySelector(".site-header")?.offsetHeight || 84) + 16;
+    const top = Math.max(target.getBoundingClientRect().top + window.scrollY - headerOffset, 0);
+    window.scrollTo({ top, behavior: "smooth" });
+}
+
+function syncNavToScroll() {
+    const sections = ["#home", "#casting", "#actors", "#projects", "#contact"]
+        .map((selector) => document.querySelector(selector))
+        .filter(Boolean);
+
+    if (!sections.length) {
+        return;
+    }
+
+    const threshold = (document.querySelector(".site-header")?.offsetHeight || 84) + 36;
+    let current = sections[0].id;
+
+    sections.forEach((section) => {
+        if (window.scrollY + threshold >= section.offsetTop) {
+            current = section.id;
+        }
+    });
+
+    setActiveNav(`#${current}`);
+}
+
+function setActiveNav(href) {
+    elements.navLinks.forEach((link) => {
+        link.classList.toggle("is-active", link.getAttribute("href") === href);
+    });
 }
 
 function initHeroSlider() {
@@ -436,7 +500,7 @@ function runLocalFallbackChat(message) {
 
     if (state.submittedAt) {
         return {
-            reply: "Өтінім жиналды. Менеджерге Telegram арқылы жіберілді. Сайттағы WhatsApp батырмалары да жұмыс істейді.",
+            reply: "Өтінім жиналды. Деректер кастинг жүйесіне сақталды. Сайттағы WhatsApp батырмалары да жұмыс істейді.",
             lead: state.lead,
             leadActive: false,
             currentField: null,
@@ -444,7 +508,7 @@ function runLocalFallbackChat(message) {
             submittedAt: state.submittedAt,
             summary: buildSummaryPayload(state.lead),
             delivery: {
-                channel: "telegram",
+                channel: "supabase",
                 ok: false,
                 error: "api.apolloai.biz is not connected yet"
             }
@@ -531,7 +595,7 @@ function advanceLocalLeadFlow(message) {
     state.submittedAt = submittedAt;
 
     return {
-        reply: "Дайын! Өтінім жиналды. Менеджерге Telegram арқылы жіберіледі.",
+        reply: "Дайын! Өтінім жиналды. Ол кастинг жүйесіне автоматты түрде сақталады.",
         lead,
         leadActive: false,
         currentField: null,
@@ -539,7 +603,7 @@ function advanceLocalLeadFlow(message) {
         submittedAt,
         summary: buildSummaryPayload(lead),
         delivery: {
-            channel: "telegram",
+            channel: "supabase",
             ok: false,
             error: "demo mode"
         }
@@ -590,8 +654,8 @@ function renderLeadSummary(summary, delivery) {
     const note = document.createElement("p");
     note.className = "summary-card__note";
     note.textContent = delivery?.ok
-        ? "AI-көмекші анкетаны Telegram арқылы менеджерге жіберді."
-        : "Менеджерге Telegram арқылы автоматты жіберіледі."
+        ? "AI-көмекші анкетаны кастинг жүйесіне сақтады."
+        : "Өтінім кастинг жүйесіне автоматты түрде сақталады."
         ;
     card.appendChild(note);
 

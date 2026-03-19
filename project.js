@@ -1,5 +1,4 @@
-
-import { getProjectById, getProjectHref, getOpenRolesCount, formatCountdown, OPEN_PROJECTS } from "./project-data.js";
+import { getProjectHref, getOpenRolesCount, formatCountdown, OPEN_PROJECTS, loadProjects } from "./project-data.js";
 
 const runtime = {
   apiBase: (document.querySelector('meta[name="apollo-api-base"]')?.getAttribute("content") || "").replace(/\/$/, "")
@@ -51,15 +50,7 @@ function formatDateLong(dateString) {
   return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
-function init() {
-  const params = new URLSearchParams(window.location.search);
-  const projectId = params.get("id");
-  state.project = getProjectById(projectId) || OPEN_PROJECTS[0];
-  renderPage();
-  bindPageEvents();
-  updateCountdownLabels();
-  state.countdownTimer = window.setInterval(updateCountdownLabels, 60000);
-}
+
 
 function renderPage() {
   if (!root || !state.project) {
@@ -85,7 +76,32 @@ function renderPage() {
       </div>
     </section>
 
-    <section class="project-page__section">
+    <section class="project-page__section project-page__section--overview">
+      <div class="project-overview-grid">
+        <article class="project-overview-card">
+          <span class="project-overview-card__label">Дедлайн</span>
+          <strong>${escapeHtml(deadline)}</strong>
+          <p>Қабылдау әлі ашық. Рөлдер тез жабылуы мүмкін.</p>
+        </article>
+        <article class="project-overview-card">
+          <span class="project-overview-card__label">Ашық рөлдер</span>
+          <strong>${openRoles}</strong>
+          <p>Негізгі және қосалқы кейіпкерлерге өтінім беруге болады.</p>
+        </article>
+        <article class="project-overview-card">
+          <span class="project-overview-card__label">Жас санаты</span>
+          <strong>${escapeHtml(state.project.ageRange)}</strong>
+          <p>Көрсетілген жас аралығы жобаға іріктеу кезінде ескеріледі.</p>
+        </article>
+        <article class="project-overview-card">
+          <span class="project-overview-card__label">Режиссер</span>
+          <strong>${escapeHtml(state.project.director)}</strong>
+          <p>Анкеталар креативтік топ пен кастинг бөліміне түседі.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="project-page__section project-page__section--roles">
       ${state.notice ? `<div class="project-notice">${escapeHtml(state.notice)}</div>` : ""}
       <div class="project-layout">
         <aside class="project-sidebar">
@@ -108,6 +124,7 @@ function renderPage() {
           <div class="project-main__header">
             <p class="eyebrow">Ашық рөлдер</p>
             <h2>Қолжетімді кейіпкерлер</h2>
+            <p class="project-main__lead">Әр рөл бойынша жас, типаж және өтінім статусы көрсетілген. Ұнаған кейіпкерге бірден анкета толтыруға болады.</p>
           </div>
           <div class="project-roles">
             ${state.project.roles.map(renderRoleCard).join("")}
@@ -144,6 +161,7 @@ function renderRoleCard(role) {
         <div class="project-selected-actor">
           <img src="${escapeHtml(role.selectedActor.avatar)}" alt="${escapeHtml(role.selectedActor.name)}">
           <div>
+            <small>Таңдалған актер</small>
             <strong>${escapeHtml(role.selectedActor.name)}</strong>
             <span>Рөл бекітілді</span>
           </div>
@@ -153,16 +171,20 @@ function renderRoleCard(role) {
   return `
     <article class="project-role-card ${isOpen ? "" : "is-filled"}">
       <div class="project-role-card__head">
-        <div>
+        <div class="project-role-card__title-block">
+          <span class="project-role-card__eyebrow">Рөл</span>
           <h3>${escapeHtml(role.title)}</h3>
           <p>${escapeHtml(role.description)}</p>
         </div>
-        <span class="project-role-badge ${isOpen ? "is-open" : "is-filled"}">${isOpen ? "Кастинг жүріп жатыр" : "Актер таңдалды"}</span>
+        <div class="project-role-card__status-wrap">
+          <span class="project-role-badge ${isOpen ? "is-open" : "is-filled"}">${isOpen ? "Кастинг жүріп жатыр" : "Актер таңдалды"}</span>
+          <span class="project-role-card__count">${role.applicantsCount} өтінім</span>
+        </div>
       </div>
       <div class="project-role-meta">
         <span>${escapeHtml(role.ageRange)}</span>
         <span>${escapeHtml(role.gender)}</span>
-        <span>${role.applicantsCount} өтінім</span>
+        <span>${isOpen ? "Жедел іріктеу" : "Кастинг жабық"}</span>
       </div>
       <div class="project-role-card__footer">
         <div class="project-role-summary-wrap">
@@ -189,7 +211,7 @@ function renderModalInner() {
     <div class="project-modal__content">
       <p class="eyebrow">Өтінім</p>
       <h3>${escapeHtml(role.title)}</h3>
-      <p class="project-modal__lead">${escapeHtml(state.project.title)} жобасына қатысу үшін қысқа анкетаны толтырыңыз. Өтінім менеджерге Telegram арқылы жіберіледі.</p>
+      <p class="project-modal__lead">${escapeHtml(state.project.title)} жобасына қатысу үшін қысқа анкетаны толтырыңыз. Өтінім базаға түсіп, кастинг командасы тарапынан қаралады.</p>
       <form id="projectApplicationForm" class="project-form">
         <input type="hidden" name="roleId" value="${escapeHtml(role.id)}">
         <div class="project-form__grid">
@@ -211,6 +233,7 @@ function renderModalInner() {
     </div>
   `;
 }
+
 function bindPageEvents() {
   document.querySelector("[data-copy-project-link]")?.addEventListener("click", async () => {
     const target = `${window.location.origin}${getProjectHref(state.project.id)}`;
@@ -322,6 +345,17 @@ function updateCountdownLabels() {
   document.querySelectorAll("[data-project-countdown]").forEach((node) => {
     node.textContent = formatCountdown(node.getAttribute("data-project-countdown"));
   });
+}
+
+async function init() {
+  const params = new URLSearchParams(window.location.search);
+  const projectId = params.get("id");
+  const projects = await loadProjects(runtime.apiBase);
+  state.project = projects.find((project) => project.id === projectId) || projects[0] || OPEN_PROJECTS[0];
+  renderPage();
+  bindPageEvents();
+  updateCountdownLabels();
+  state.countdownTimer = window.setInterval(updateCountdownLabels, 60000);
 }
 
 async function fetchJson(url, options = {}) {

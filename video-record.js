@@ -1,5 +1,5 @@
 /**
- * Video recording overlay — record up to 2 min video and send to Telegram.
+ * Video recording overlay — record up to 2 min video and save to the casting backend.
  */
 
 var MAX_RECORD_SEC = 120;
@@ -357,7 +357,7 @@ function showPlayback(blob) {
 
     document.getElementById("videoRecRetry").addEventListener("click", retryRecording);
     document.getElementById("videoRecSend").addEventListener("click", function() {
-        sendVideoToTelegram(blob);
+        sendVideoToCastingApi(blob);
     });
 }
 
@@ -394,13 +394,13 @@ function retryRecording() {
     });
 }
 
-function sendVideoToTelegram(blob) {
+function sendVideoToCastingApi(blob) {
     var sendBtn = document.getElementById("videoRecSend");
     sendBtn.disabled = true;
     sendBtn.textContent = "Жіберілуде...";
 
     document.getElementById("videoRecStatus").textContent = "Жүктелуде...";
-    document.getElementById("videoRecDesc").textContent = "Видео менеджерге жіберілуде";
+    document.getElementById("videoRecDesc").textContent = "Видео кастинг тобына сақталуда";
 
     var apiBase = (document.querySelector('meta[name="apollo-api-base"]') || {}).content || "";
     apiBase = apiBase.replace(/\/$/, "");
@@ -418,7 +418,7 @@ function sendVideoToTelegram(blob) {
         if (data.ok) {
             document.getElementById("videoRecStatus").textContent = "Жіберілді!";
             document.getElementById("videoRecStatus").style.color = "#4caf50";
-            document.getElementById("videoRecDesc").textContent = "Видео менеджерге жетті. Рахмет!";
+            document.getElementById("videoRecDesc").textContent = "Видео кастинг тобына сақталды. Рахмет!";
 
             var actions = document.getElementById("videoRecActions");
             actions.innerHTML = '<button class="casting-overlay__start-btn" id="videoRecDone" type="button">Жабу</button>';

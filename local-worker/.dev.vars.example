@@ -10,11 +10,12 @@ AZURE_SPEECH_KEY=
 AZURE_SPEECH_REGION=
 AZURE_TTS_VOICE=kk-KZ-AigulNeural
 AZURE_TTS_FORMAT=audio-24khz-48kbitrate-mono-mp3
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_CHAT_ID=
-TELEGRAM_THREAD_ID=
-ALLOWED_ORIGINS=http://127.0.0.1:8080,https://apolloai.biz,https://www.apolloai.biz
-AVATAR_PROVIDER=Pipecat + MuseTalk
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_STORAGE_BUCKET=casting-videos
+ADMIN_ACCESS_TOKEN=
+ALLOWED_ORIGINS=http://127.0.0.1:8080,https://apolloai.biz,https://www.apolloai.biz,https://admin.apolloai.biz,https://meyram-admin.pages.dev,https://kanybekovdimash-dot.github.io
+AVATAR_PROVIDER=Pipecat + LiteAvatar
 AVATAR_PREVIEW_URL=
 AVATAR_POSTER_URL=
 AVATAR_VIDEO_URL=
@@ -41,3 +42,7 @@ HUGGINGFACE_TOKEN=
 LIVEKIT_URL=ws://51.38.99.1:7880
 LIVEKIT_KEY=your-livekit-key-here
 LIVEKIT_SECRET=your-livekit-secret-here
+SUPABASE_ANON_KEY=
+ADMIN_EMAILS=
+
+

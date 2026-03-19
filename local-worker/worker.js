@@ -62,7 +62,7 @@ const FIELD_DEFINITIONS = [
 
 const STATIC_FAQ = {
   age: "Кастингке негізінен 4-18 жас аралығындағы балалар қатыса алады. Егер бала сәл кіші немесе үлкен болса, бәрібір өтінім қалдыруға болады — менеджер нақтылайды.",
-  process: "Жазылу оңай: AI-көмекші қысқа анкета толтырады, содан кейін өтінімді менеджерге Telegram арқылы жібереді.",
+  process: "Жазылу оңай: AI-көмекші қысқа анкета толтырады, содан кейін өтінімді кастинг жүйесіне сақтайды.",
   generic: "Мен кастингке жазылуға немесе жас, формат және келесі қадам туралы кеңес беруге көмектесе аламын."
 };
 
@@ -126,23 +126,73 @@ export default {
         return handleVideo(request, env, corsHeaders);
       }
 
+      if (request.method === "GET" && url.pathname === "/projects-catalog") {
+        return handleProjectsCatalog(request, env, corsHeaders);
+      }
+
+      if (request.method === "GET" && url.pathname === "/admin/dashboard") {
+        return handleAdminDashboard(request, env, corsHeaders);
+      }
+
+      if (request.method === "GET" && url.pathname === "/admin/project-applications") {
+        return handleAdminCollection(request, env, corsHeaders, {
+          table: "project_applications",
+          order: "created_at.desc"
+        });
+      }
+
+      if (request.method === "GET" && url.pathname === "/admin/chat-leads") {
+        return handleAdminCollection(request, env, corsHeaders, {
+          table: "chat_leads",
+          order: "created_at.desc"
+        });
+      }
+
+      if (request.method === "GET" && url.pathname === "/admin/video-submissions") {
+        return handleAdminCollection(request, env, corsHeaders, {
+          table: "video_submissions",
+          order: "created_at.desc"
+        });
+      }
+
+      if (request.method === "GET" && url.pathname === "/admin/projects") {
+        return handleAdminCollection(request, env, corsHeaders, {
+          table: "projects_catalog",
+          order: "updated_at.desc"
+        });
+      }
+
+      if (request.method === "POST" && url.pathname === "/admin/projects") {
+        return handleAdminSaveProject(request, env, corsHeaders);
+      }
+
+      if (request.method === "GET" && url.pathname === "/admin/ai-settings") {
+        return handleAdminGetAiSettings(request, env, corsHeaders);
+      }
+
+      if (request.method === "POST" && url.pathname === "/admin/ai-settings") {
+        return handleAdminSaveAiSettings(request, env, corsHeaders);
+      }
+
       return json({ ok: false, error: "Not found" }, 404, corsHeaders);
     } catch (error) {
-      return json({ ok: false, error: error.message || "Internal error" }, 500, corsHeaders);
+      const status = Number(error?.status) || 500;
+      return json({ ok: false, error: error.message || "Internal error" }, status, corsHeaders);
     }
   }
 };
 
 async function handleSession(request, env, corsHeaders) {
   const payload = await safeJson(request);
-  const publicBrand = payload.brand || env.PUBLIC_BRAND || "Meyram Cinema";
+  const aiSettings = await loadAiSettings(env);
+  const publicBrand = payload.brand || aiSettings.publicBrand;
 
   return json(
     {
       ok: true,
       sessionId: crypto.randomUUID(),
       publicBrand,
-      assistantBrand: env.ASSISTANT_BRAND || "Meyram AI",
+      assistantBrand: aiSettings.assistantBrand,
       providers: getProviderInfo(env),
       avatar: buildAvatarPayload(env),
       speech: buildSpeechPayload(env)
@@ -254,7 +304,7 @@ async function orchestrateChat({ sessionId, message, history, clientState, env }
   // Extract lead data from the reply's embedded JSON
   const { cleanReply, extractedLead } = parseLeadFromReply(rawReply, lead);
 
-  // Send to Telegram if we have at least childName and phone, and not already submitted
+  // Save to Supabase if we have at least childName and phone, and not already submitted
   let submitted = clientState.submittedAt ? true : false;
   let submittedAt = clientState.submittedAt || null;
 
@@ -264,14 +314,13 @@ async function orchestrateChat({ sessionId, message, history, clientState, env }
     !clientState.submittedAt
   ) {
     try {
-      const summary = buildSummaryPayload(extractedLead);
-      const delivery = await sendTelegramLead(summary.lead, sessionId, env);
+      const delivery = await deliverLead({ lead: extractedLead, sessionId, env });
       if (delivery.ok) {
         submitted = true;
         submittedAt = new Date().toISOString();
       }
     } catch {
-      // Telegram delivery failed — not critical, continue chatting
+      // Supabase delivery failed — not critical, continue chatting
     }
   }
 
@@ -287,73 +336,33 @@ async function orchestrateChat({ sessionId, message, history, clientState, env }
 
 async function deliverLead({ lead, sessionId, env }) {
   const summary = buildSummaryPayload(lead);
-  return sendTelegramLead(summary.lead, sessionId, env);
-}
-
-async function sendTelegramLead(lead, sessionId, env) {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
-    return {
-      channel: "telegram",
-      ok: false,
-      error: "Telegram bot is not configured"
-    };
-  }
-
-  const text = [
-    "🎬 <b>Жаңа кастинг өтінімі</b>",
-    `Бренд: <b>${escapeHtml(env.PUBLIC_BRAND || "Meyram Cinema")}</b>`,
-    `Сессия: <code>${escapeHtml(sessionId)}</code>`,
-    "",
-    `<b>Бала:</b> ${escapeHtml(lead.childName)}`,
-    `<b>Жасы:</b> ${escapeHtml(lead.childAge)}`,
-    `<b>Қала:</b> ${escapeHtml(lead.city)}`,
-    `<b>Ата-ана:</b> ${escapeHtml(lead.parentName)}`,
-    `<b>Байланыс:</b> ${escapeHtml(lead.phone)}`,
-    `<b>Тәжірибе:</b> ${escapeHtml(lead.experience)}`,
-    `<b>Ескерту:</b> ${escapeHtml(lead.note)}`
-  ].join("\n");
-
-  const body = {
-    chat_id: env.TELEGRAM_CHAT_ID,
-    text,
-    parse_mode: "HTML",
-    disable_web_page_preview: true
-  };
-
-  if (env.TELEGRAM_THREAD_ID) {
-    body.message_thread_id = Number(env.TELEGRAM_THREAD_ID);
-  }
-
-  const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json; charset=utf-8"
-    },
-    body: JSON.stringify(body)
+  const [savedLead] = await insertSupabaseRow(env, "chat_leads", {
+    session_id: sessionId,
+    brand: env.PUBLIC_BRAND || "Meyram Cinema",
+    child_name: summary.lead.childName === "—" ? null : summary.lead.childName,
+    child_age: summary.lead.childAge === "—" ? null : summary.lead.childAge,
+    city: summary.lead.city === "—" ? null : summary.lead.city,
+    parent_name: summary.lead.parentName === "—" ? null : summary.lead.parentName,
+    phone: summary.lead.phone === "—" ? null : summary.lead.phone,
+    experience: summary.lead.experience === "—" ? null : summary.lead.experience,
+    note: summary.lead.note === "—" ? null : summary.lead.note,
+    source: "ai-chat"
   });
 
-  const data = await response.json();
-  if (!response.ok || !data.ok) {
-    return {
-      channel: "telegram",
-      ok: false,
-      error: data.description || "Telegram sendMessage failed"
-    };
-  }
-
   return {
-    channel: "telegram",
+    channel: "supabase",
     ok: true,
-    messageId: data.result?.message_id || null
+    id: savedLead?.id || null
   };
 }
 
 async function buildConversationalReply(message, history, env) {
+  const aiSettings = await loadAiSettings(env);
   try {
-    const reply = await chatWithProvider({ message, history, env, provider: getChatProvider(env) });
-    return sanitizeAssistantText(reply) || STATIC_FAQ.generic;
+    const reply = await chatWithProvider({ message, history, env, provider: getChatProvider(env), settings: aiSettings });
+    return sanitizeAssistantText(reply) || aiSettings.faqGeneric || STATIC_FAQ.generic;
   } catch {
-    return STATIC_FAQ.generic;
+    return aiSettings.faqGeneric || STATIC_FAQ.generic;
   }
 }
 
@@ -380,7 +389,7 @@ function parseLeadFromReply(reply, existingLead) {
   }
 }
 
-async function chatWithProvider({ message, history, env, provider }) {
+async function chatWithProvider({ message, history, env, provider, settings }) {
   if (provider === "ollama") {
     if (!env.OLLAMA_BASE_URL) {
       throw new Error("OLLAMA_BASE_URL is not configured");
@@ -394,7 +403,7 @@ async function chatWithProvider({ message, history, env, provider }) {
       body: JSON.stringify({
         model: env.OLLAMA_CHAT_MODEL || env.CHAT_MODEL || DEFAULT_CHAT_MODEL,
         stream: false,
-        messages: buildProviderMessages(message, env)
+        messages: buildProviderMessages(message, env, settings)
       })
     });
 
@@ -403,7 +412,7 @@ async function chatWithProvider({ message, history, env, provider }) {
       throw new Error(data.error || "Ollama chat request failed");
     }
 
-    return data.message?.content?.trim() || STATIC_FAQ.generic;
+    return data.message?.content?.trim() || settings?.faqGeneric || STATIC_FAQ.generic;
   }
 
   if (provider === "huggingface") {
@@ -418,7 +427,7 @@ async function chatWithProvider({ message, history, env, provider }) {
         "Content-Type": "application/json; charset=utf-8"
       },
       body: JSON.stringify({
-        inputs: buildChatPrompt(message, env)
+        inputs: buildChatPrompt(message, env, settings)
       })
     });
 
@@ -427,7 +436,7 @@ async function chatWithProvider({ message, history, env, provider }) {
       throw new Error(data.error || "Hugging Face chat request failed");
     }
 
-    return extractTextFromGenericResponse(data) || STATIC_FAQ.generic;
+    return extractTextFromGenericResponse(data) || settings?.faqGeneric || STATIC_FAQ.generic;
   }
 
   if (provider === "runpod") {
@@ -440,8 +449,8 @@ async function chatWithProvider({ message, history, env, provider }) {
       headers: buildBearerHeaders(env.RUNPOD_API_KEY),
       body: JSON.stringify({
         input: {
-          messages: buildProviderMessages(message, env),
-          system_prompt: buildSystemPrompt(env)
+          messages: buildProviderMessages(message, env, settings),
+          system_prompt: buildSystemPrompt(env, settings)
         }
       })
     });
@@ -451,18 +460,18 @@ async function chatWithProvider({ message, history, env, provider }) {
       throw new Error(data.error || "RunPod chat request failed");
     }
 
-    return extractTextFromGenericResponse(data) || STATIC_FAQ.generic;
+    return extractTextFromGenericResponse(data) || settings?.faqGeneric || STATIC_FAQ.generic;
   }
 
-  return chatWithGroq(message, history, env);
+  return chatWithGroq(message, history, env, settings);
 }
 
-async function chatWithGroq(message, history, env) {
+async function chatWithGroq(message, history, env, settings) {
   if (!env.GROQ_API_KEY) {
     throw new Error("GROQ_API_KEY is not configured");
   }
 
-  const messages = [{ role: "system", content: buildSystemPrompt(env) }];
+  const messages = [{ role: "system", content: buildSystemPrompt(env, settings) }];
   if (Array.isArray(history)) {
     for (const msg of history.slice(-20)) {
       if (msg.role === "user" || msg.role === "assistant") {
@@ -494,7 +503,7 @@ async function chatWithGroq(message, history, env) {
   }
 
   const reply = data.choices?.[0]?.message?.content;
-  return typeof reply === "string" && reply.trim() ? reply.trim() : STATIC_FAQ.generic;
+  return typeof reply === "string" && reply.trim() ? reply.trim() : settings?.faqGeneric || STATIC_FAQ.generic;
 }
 
 async function transcribeWithProvider({ audio, language, env, provider }) {
@@ -666,11 +675,11 @@ async function synthesizeWithAzure({ text, voice, format, env }) {
   };
 }
 
-function buildProviderMessages(message, env) {
+function buildProviderMessages(message, env, settings) {
   return [
     {
       role: "system",
-      content: buildSystemPrompt(env)
+      content: buildSystemPrompt(env, settings)
     },
     {
       role: "user",
@@ -679,8 +688,13 @@ function buildProviderMessages(message, env) {
   ];
 }
 
-function buildSystemPrompt(env) {
-  return `Сен ${env.PUBLIC_BRAND || "Meyram Cinema"} кастинг көмекшісісің. Сенің атың Мейрам AI.
+function buildSystemPrompt(env, settings) {
+  const effective = settings || getDefaultAiSettings(env);
+  if (effective.systemPromptOverride) {
+    return String(effective.systemPromptOverride).trim();
+  }
+
+  return `Сен ${effective.publicBrand} кастинг көмекшісісің. Сенің атың ${effective.assistantBrand}.
 
 ТІЛ: Тек қазақ тілінде жауап бер. Ешқашан орысша немесе ағылшынша жауап берме. Егер пайдаланушы орысша жазса — бәрібір қазақша жауап бер.
 
@@ -689,7 +703,7 @@ function buildSystemPrompt(env) {
 КАСТИНГ АҚПАРАТЫ:
 - Кастингке 4-18 жас аралығындағы балалар қатыса алады
 - Тіркелу тегін
-- Берілмеген бағаларды, мерзімдерді, уәделерді ойлап тапма
+- Берілмеген бағаларды, мерзімдерді, уәделерді ойлап таппа
 
 ДЕРЕКТЕР ЖИНАУ:
 Пайдаланушымен еркін сөйлес, бірақ біртіндеп мына деректерді жина:
@@ -701,17 +715,17 @@ function buildSystemPrompt(env) {
 6. Тәжірибесі бар ма (сахна, TikTok, курс, т.б.)
 7. Қосымша ескерту
 
-ЕРЕЖЕ: Бірден бәрін сұрама! Бір-екіден сұра, табиғи сөйлес. Телефонды міндетті сұра.
+ЕРЕЖЕ: Бірден бәрін сұрама. Бір-екіден сұра, табиғи сөйлес. Телефонды міндетті сұра.
 
 ДЕРЕКТЕР ЖІБЕРІЛГЕННЕН КЕЙІН:
-Егер барлық деректер жиналса — пайдаланушыны құттықта, "менеджер жақын арада хабарласады" де. Содан кейін еркін сөйлесуді жалғастыр — сұрақтарға жауап бер, кеңес бер, әңгімелес. Сен тірі адамдай жұмыс істейсің, тоқтама!
+Егер барлық деректер жиналса — пайдаланушыны құттықта, "менеджер жақын арада хабарласады" де. Содан кейін еркін сөйлесуді жалғастыр.
 
 <think> тегтерін немесе ішкі жазбаларды шығарма.
 
 ТЕХНИКАЛЫҚ ТАПСЫРМА (пайдаланушыға көрсетпе):
 Жауаптың ең соңына міндетті түрде мына форматта JSON қос:
 <!--LEAD_DATA:{"childName":"","childAge":"","city":"","parentName":"","phone":"","experience":"","note":""}-->
-Сөйлесуде айтылған деректерді JSON-ға толтыр. Белгісіз өрістерді бос қалдыр (""). Ойлап тапма. Бұл блок ӘРҚАШАН болуы керек.`;
+Сөйлесуде айтылған деректерді JSON-ға толтыр. Белгісіз өрістерді бос қалдыр (""). Ойлап таппа. Бұл блок ӘРҚАШАН болуы керек.`;
 }
 
 function sanitizeAssistantText(text) {
@@ -739,8 +753,8 @@ function sanitizeAssistantText(text) {
   return lines.join("\n").trim();
 }
 
-function buildChatPrompt(message, env) {
-  return `${buildSystemPrompt(env)}\n\nUser: ${message}\nAssistant:`;
+function buildChatPrompt(message, env, settings) {
+  return `${buildSystemPrompt(env, settings)}\n\nUser: ${message}\nAssistant:`;
 }
 
 function normalizeClientState(value) {
@@ -964,7 +978,7 @@ function buildCorsHeaders(request, env) {
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Token",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin"
   };
@@ -1121,10 +1135,6 @@ function escapeXml(value) {
 }
 
 async function handleProjectApplication(request, env, corsHeaders) {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
-    return json({ ok: false, error: "Telegram is not configured" }, 500, corsHeaders);
-  }
-
   const payload = await safeJson(request);
   const applicant = payload.applicant || {};
   const fullName = String(applicant.fullName || "").trim();
@@ -1135,97 +1145,579 @@ async function handleProjectApplication(request, env, corsHeaders) {
   const portfolioUrl = String(applicant.portfolioUrl || "").trim();
   const experience = String(applicant.experience || "").trim();
   const note = String(applicant.note || "").trim();
+  const projectId = String(payload.projectId || crypto.randomUUID()).trim();
   const projectTitle = String(payload.projectTitle || "").trim();
+  const roleId = String(payload.roleId || crypto.randomUUID()).trim();
   const roleTitle = String(payload.roleTitle || "").trim();
 
   if (!projectTitle || !roleTitle || !fullName || !age || !city || !parentName || !phone || !note) {
     return json({ ok: false, error: "Required application fields are missing" }, 400, corsHeaders);
   }
 
-  const lines = [
-    "🎭 <b>Жобаға өтінім</b>",
-    `Сессия: <code>${escapeHtml(payload.projectId || crypto.randomUUID())}</code>`,
-    "",
-    `<b>Жоба:</b> ${escapeHtml(projectTitle)}`,
-    `<b>Рөл:</b> ${escapeHtml(roleTitle)}`,
-    `<b>Аты-жөні:</b> ${escapeHtml(fullName)}`,
-    `<b>Жасы:</b> ${escapeHtml(age)}`,
-    `<b>Қала:</b> ${escapeHtml(city)}`,
-    `<b>Ата-ана:</b> ${escapeHtml(parentName)}`,
-    `<b>Телефон:</b> ${escapeHtml(phone)}`,
-    `<b>Портфолио:</b> ${escapeHtml(portfolioUrl || "—")}`,
-    `<b>Тәжірибе:</b> ${escapeHtml(experience || "—")}`,
-    `<b>Питч:</b> ${escapeHtml(note)}`
-  ];
-
-  const body = {
-    chat_id: env.TELEGRAM_CHAT_ID,
-    text: lines.join("\n"),
-    parse_mode: "HTML"
-  };
-
-  if (env.TELEGRAM_THREAD_ID) {
-    body.message_thread_id = Number(env.TELEGRAM_THREAD_ID);
-  }
-
-  const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify(body)
+  const [savedApplication] = await insertSupabaseRow(env, "project_applications", {
+    project_id: projectId,
+    project_title: projectTitle,
+    role_id: roleId,
+    role_title: roleTitle,
+    full_name: fullName,
+    age,
+    city,
+    parent_name: parentName,
+    phone,
+    portfolio_url: portfolioUrl || null,
+    experience: experience || null,
+    note,
+    status: "new",
+    source: "site"
   });
 
-  const data = await response.json();
-  if (!response.ok || !data.ok) {
-    return json(
-      { ok: false, error: data.description || "Telegram sendMessage failed" },
-      502,
-      corsHeaders
-    );
-  }
-
-  return json({ ok: true, message: "Project application sent" }, 200, corsHeaders);
+  return json(
+    {
+      ok: true,
+      id: savedApplication?.id || null,
+      message: "Project application saved"
+    },
+    200,
+    corsHeaders
+  );
 }
 
 async function handleVideo(request, env, corsHeaders) {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
-    return json({ ok: false, error: "Telegram is not configured" }, 500, corsHeaders);
-  }
-
   const formData = await request.formData();
   const videoFile = formData.get("video");
-  const sessionId = formData.get("sessionId") || "unknown";
+  const sessionId = String(formData.get("sessionId") || "unknown").trim();
 
   if (!videoFile || !(videoFile instanceof File)) {
     return json({ ok: false, error: "No video file provided" }, 400, corsHeaders);
   }
 
-  const maxSize = 50 * 1024 * 1024; // 50MB Telegram limit
+  const maxSize = 50 * 1024 * 1024;
   if (videoFile.size > maxSize) {
     return json({ ok: false, error: "Видео тым үлкен (50MB дейін)" }, 400, corsHeaders);
   }
 
-  const tgForm = new FormData();
-  tgForm.append("chat_id", env.TELEGRAM_CHAT_ID);
-  tgForm.append("video", videoFile, videoFile.name || "video.webm");
-  tgForm.append("caption", `🎬 Видео визитка\nСессия: ${sessionId}`);
+  const bucket = resolveSupabaseVideoBucket(env);
+  const storagePath = buildStoragePath(sessionId, videoFile.name || "video.webm");
+  await uploadSupabaseObject(env, {
+    bucket,
+    path: storagePath,
+    file: videoFile
+  });
 
-  if (env.TELEGRAM_THREAD_ID) {
-    tgForm.append("message_thread_id", env.TELEGRAM_THREAD_ID);
-  }
+  const [savedVideo] = await insertSupabaseRow(env, "video_submissions", {
+    session_id: sessionId,
+    file_name: videoFile.name || "video.webm",
+    file_size: videoFile.size,
+    content_type: videoFile.type || "video/webm",
+    storage_bucket: bucket,
+    storage_path: storagePath,
+    status: "uploaded"
+  });
 
-  const response = await fetch(
-    `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendVideo`,
-    { method: "POST", body: tgForm }
+  return json(
+    {
+      ok: true,
+      id: savedVideo?.id || null,
+      message: "Video saved to casting storage"
+    },
+    200,
+    corsHeaders
   );
+}
 
-  const data = await response.json();
-  if (!response.ok || !data.ok) {
-    return json(
-      { ok: false, error: data.description || "Telegram sendVideo failed" },
-      502,
-      corsHeaders
-    );
+async function handleAdminDashboard(request, env, corsHeaders) {
+  await requireAdmin(request, env);
+
+  const [projectApplications, chatLeads, videoSubmissions, recentApplications, recentLeads, recentVideos] = await Promise.all([
+    fetchSupabaseCount(env, "project_applications"),
+    fetchSupabaseCount(env, "chat_leads"),
+    fetchSupabaseCount(env, "video_submissions"),
+    fetchSupabaseRows(env, "project_applications", { limit: 6, order: "created_at.desc" }),
+    fetchSupabaseRows(env, "chat_leads", { limit: 6, order: "created_at.desc" }),
+    fetchSupabaseRows(env, "video_submissions", { limit: 6, order: "created_at.desc" })
+  ]);
+
+  return json(
+    {
+      ok: true,
+      stats: {
+        projectApplications,
+        chatLeads,
+        videoSubmissions
+      },
+      recent: {
+        projectApplications: recentApplications,
+        chatLeads: recentLeads,
+        videoSubmissions: recentVideos
+      },
+      generatedAt: new Date().toISOString()
+    },
+    200,
+    corsHeaders
+  );
+}
+
+async function handleAdminCollection(request, env, corsHeaders, { table, order = "created_at.desc" }) {
+  await requireAdmin(request, env);
+  const url = new URL(request.url);
+  const limit = parseLimitParam(url.searchParams.get("limit"), 24);
+  const items = await fetchSupabaseRows(env, table, { limit, order });
+  const total = await fetchSupabaseCount(env, table);
+
+  return json(
+    {
+      ok: true,
+      table,
+      total,
+      limit,
+      items
+    },
+    200,
+    corsHeaders
+  );
+}
+async function handleProjectsCatalog(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const limit = parseLimitParam(url.searchParams.get("limit"), 20);
+  const rows = await fetchSupabaseRows(env, "projects_catalog", {
+    limit,
+    order: "countdown_date.asc",
+    filters: {
+      is_published: true
+    }
+  });
+
+  return json(
+    {
+      ok: true,
+      items: rows.map(mapProjectRecordToCatalogItem)
+    },
+    200,
+    corsHeaders
+  );
+}
+
+async function handleAdminSaveProject(request, env, corsHeaders) {
+  await requireAdmin(request, env);
+  const payload = await safeJson(request);
+  const project = sanitizeProjectCatalogInput(payload.project || {});
+
+  const [savedProject] = await upsertSupabaseRow(env, "projects_catalog", project, "id");
+
+  return json(
+    {
+      ok: true,
+      item: mapProjectRecordToCatalogItem(savedProject),
+      raw: savedProject
+    },
+    200,
+    corsHeaders
+  );
+}
+
+async function handleAdminGetAiSettings(request, env, corsHeaders) {
+  await requireAdmin(request, env);
+  const settings = await loadAiSettings(env);
+  return json({ ok: true, item: settings }, 200, corsHeaders);
+}
+
+async function handleAdminSaveAiSettings(request, env, corsHeaders) {
+  await requireAdmin(request, env);
+  const payload = await safeJson(request);
+  const settings = sanitizeAiSettingsInput(payload.settings || {});
+  const [savedSettings] = await upsertSupabaseRow(env, "ai_settings", settings, "id");
+  return json({ ok: true, item: mapAiSettingsRecord(savedSettings) }, 200, corsHeaders);
+}
+
+function parseLimitParam(rawValue, fallback = 24) {
+  const parsed = Number.parseInt(String(rawValue || ""), 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(Math.max(parsed, 1), 100);
+}
+
+async function requireAdmin(request, env) {
+  const expected = String(env.ADMIN_ACCESS_TOKEN || "").trim();
+  const provided = resolveAdminToken(request);
+
+  if (expected && provided === expected) {
+    return;
   }
 
-  return json({ ok: true, message: "Video sent to Telegram" }, 200, corsHeaders);
+  if (provided) {
+    const user = await verifySupabaseAdminToken(provided, env);
+    if (user) {
+      return user;
+    }
+  }
+
+  if (expected || String(env.SUPABASE_ANON_KEY || "").trim()) {
+    throw createHttpError("Unauthorized", 401);
+  }
+
+  throw createHttpError("Admin auth is not configured", 500);
+}
+
+async function verifySupabaseAdminToken(token, env) {
+  const url = normalizeSupabaseUrl(env.SUPABASE_URL);
+  const apiKey = String(env.SUPABASE_ANON_KEY || env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!url || !apiKey || !token) {
+    return null;
+  }
+
+  const response = await fetch(`${url}/auth/v1/user`, {
+    headers: {
+      apikey: apiKey,
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok || !data?.id) {
+    return null;
+  }
+
+  const adminEmails = String(env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (adminEmails.length) {
+    const email = String(data.email || "").trim().toLowerCase();
+    if (!email || !adminEmails.includes(email)) {
+      throw createHttpError("Forbidden", 403);
+    }
+  }
+
+  return data;
+}
+
+function resolveAdminToken(request) {
+
+  const explicit = String(request.headers.get("X-Admin-Token") || "").trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  const authHeader = String(request.headers.get("Authorization") || "").trim();
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : "";
+}
+
+async function insertSupabaseRow(env, table, payload) {
+  ensureSupabaseConfigured(env);
+  const response = await fetch(`${getSupabaseRestBaseUrl(env)}/${table}`, {
+    method: "POST",
+    headers: {
+      ...buildSupabaseServiceHeaders(env),
+      Prefer: "return=representation"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(data?.message || data?.error || `Supabase insert failed for ${table}`, 502);
+  }
+
+  return Array.isArray(data) ? data : [data];
+}
+
+async function upsertSupabaseRow(env, table, payload, conflictColumn = "id") {
+  ensureSupabaseConfigured(env);
+  const response = await fetch(`${getSupabaseRestBaseUrl(env)}/${table}?on_conflict=${encodeURIComponent(conflictColumn)}`, {
+    method: "POST",
+    headers: {
+      ...buildSupabaseServiceHeaders(env),
+      Prefer: "resolution=merge-duplicates,return=representation"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(data?.message || data?.error || `Supabase upsert failed for ${table}`, 502);
+  }
+
+  return Array.isArray(data) ? data : [data];
+}
+
+async function fetchSupabaseRows(env, table, { limit = 24, order = "created_at.desc", select = "*", filters = {} } = {}) {
+  ensureSupabaseConfigured(env);
+  const params = new URLSearchParams();
+  params.set("select", select);
+  params.set("order", order);
+  params.set("limit", String(limit));
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (value === undefined || value === null || value === "") {
+      continue;
+    }
+    params.set(key, `eq.${value}`);
+  }
+
+  const response = await fetch(`${getSupabaseRestBaseUrl(env)}/${table}?${params.toString()}`, {
+    headers: buildSupabaseServiceHeaders(env)
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(data?.message || data?.error || `Supabase fetch failed for ${table}`, 502);
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+async function fetchSupabaseCount(env, table, filters = {}) {
+  ensureSupabaseConfigured(env);
+  const params = new URLSearchParams();
+  params.set("select", "id");
+  params.set("limit", "1");
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (value === undefined || value === null || value === "") {
+      continue;
+    }
+    params.set(key, `eq.${value}`);
+  }
+
+  const response = await fetch(`${getSupabaseRestBaseUrl(env)}/${table}?${params.toString()}`, {
+    headers: {
+      ...buildSupabaseServiceHeaders(env),
+      Prefer: "count=exact",
+      Range: "0-0"
+    }
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(data?.message || data?.error || `Supabase count failed for ${table}`, 502);
+  }
+
+  const contentRange = response.headers.get("content-range") || "";
+  const countPart = contentRange.split("/").pop();
+  const parsed = Number.parseInt(countPart, 10);
+  if (Number.isFinite(parsed)) {
+    return parsed;
+  }
+
+  return Array.isArray(data) ? data.length : 0;
+}
+async function uploadSupabaseObject(env, { bucket, path, file }) {
+  ensureSupabaseConfigured(env);
+  const encodedPath = path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  const response = await fetch(`${getSupabaseStorageBaseUrl(env)}/${encodeURIComponent(bucket)}/${encodedPath}`, {
+    method: "POST",
+    headers: {
+      ...buildSupabaseServiceHeaders(env),
+      "Content-Type": file.type || "application/octet-stream",
+      "x-upsert": "false",
+      "cache-control": "3600"
+    },
+    body: await file.arrayBuffer()
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(data?.message || data?.error || "Supabase storage upload failed", 502);
+  }
+
+  return data;
+}
+
+async function parseJsonResponse(response) {
+  const text = await response.text();
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
+}
+
+function buildSupabaseServiceHeaders(env) {
+  ensureSupabaseConfigured(env);
+  return {
+    "Content-Type": "application/json; charset=utf-8",
+    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+  };
+}
+
+function getSupabaseRestBaseUrl(env) {
+  return `${normalizeSupabaseUrl(env.SUPABASE_URL)}/rest/v1`;
+}
+
+function getSupabaseStorageBaseUrl(env) {
+  return `${normalizeSupabaseUrl(env.SUPABASE_URL)}/storage/v1/object`;
+}
+
+function normalizeSupabaseUrl(value) {
+  return trimTrailingSlash(String(value || "").trim());
+}
+
+function resolveSupabaseVideoBucket(env) {
+  return String(env.SUPABASE_STORAGE_BUCKET || "casting-videos").trim() || "casting-videos";
+}
+
+function ensureSupabaseConfigured(env) {
+  if (!normalizeSupabaseUrl(env.SUPABASE_URL)) {
+    throw createHttpError("SUPABASE_URL is not configured", 500);
+  }
+
+  if (!String(env.SUPABASE_SERVICE_ROLE_KEY || "").trim()) {
+    throw createHttpError("SUPABASE_SERVICE_ROLE_KEY is not configured", 500);
+  }
+}
+
+function buildStoragePath(sessionId, fileName) {
+  const timestamp = new Date().toISOString().replace(/[.:]/g, "-");
+  const safeSession = slugifyFilePart(sessionId || "session");
+  const safeFile = slugifyFilePart(fileName || "video.webm");
+  return `video-submissions/${timestamp.slice(0, 10)}/${timestamp}-${safeSession}-${safeFile}`;
+}
+
+function slugifyFilePart(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9а-яёіїңғүұқөһ._-]+/gi, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80) || "item";
+}
+
+function createHttpError(message, status = 500) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
+function sanitizeProjectCatalogInput(project) {
+  const roles = Array.isArray(project.roles) ? project.roles : [];
+  const id = slugifyProjectId(project.id || project.title || crypto.randomUUID());
+
+  return {
+    id,
+    title: String(project.title || "").trim(),
+    genre: String(project.genre || "").trim() || null,
+    poster: String(project.poster || "").trim() || null,
+    banner: String(project.banner || "").trim() || null,
+    promo_video_url: String(project.promoVideoUrl || project.promo_video_url || "").trim() || null,
+    countdown_date: String(project.countdownDate || project.countdown_date || "").trim() || null,
+    description: String(project.description || "").trim() || null,
+    director: String(project.director || "").trim() || null,
+    age_range: String(project.ageRange || project.age_range || "").trim() || null,
+    roles: roles.map(sanitizeProjectRole),
+    is_published: project.isPublished !== false,
+    updated_at: new Date().toISOString()
+  };
+}
+
+function sanitizeProjectRole(role) {
+  return {
+    id: slugifyProjectId(role.id || role.title || crypto.randomUUID()),
+    title: String(role.title || "").trim(),
+    description: String(role.description || "").trim(),
+    ageRange: String(role.ageRange || role.age_range || "").trim(),
+    gender: String(role.gender || "").trim(),
+    status: String(role.status || "open").trim() || "open",
+    applicantsCount: Number(role.applicantsCount || role.applicants_count || 0) || 0,
+    applicants: Array.isArray(role.applicants) ? role.applicants.map((item) => String(item || "").trim()).filter(Boolean) : [],
+    selectedActor: role.selectedActor && typeof role.selectedActor === "object"
+      ? {
+          name: String(role.selectedActor.name || "").trim(),
+          avatar: String(role.selectedActor.avatar || "").trim()
+        }
+      : null
+  };
+}
+
+function mapProjectRecordToCatalogItem(record) {
+  return {
+    id: record.id,
+    title: record.title,
+    genre: record.genre || "",
+    poster: record.poster || "",
+    banner: record.banner || record.poster || "",
+    promoVideoUrl: record.promo_video_url || "",
+    countdownDate: record.countdown_date,
+    description: record.description || "",
+    director: record.director || "",
+    ageRange: record.age_range || "",
+    roles: Array.isArray(record.roles) ? record.roles : [],
+    isPublished: record.is_published !== false,
+    updatedAt: record.updated_at || record.created_at || null,
+    createdAt: record.created_at || null
+  };
+}
+
+function slugifyProjectId(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9а-яёіїңғүұқөһ]+/gi, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80) || "project";
+}
+
+async function loadAiSettings(env) {
+  try {
+    const rows = await fetchSupabaseRows(env, "ai_settings", {
+      limit: 1,
+      filters: { id: "default" }
+    });
+    if (rows.length) {
+      return mapAiSettingsRecord(rows[0]);
+    }
+  } catch {
+    // fallback to defaults when Supabase or table is unavailable
+  }
+
+  return getDefaultAiSettings(env);
+}
+
+function getDefaultAiSettings(env) {
+  return {
+    id: "default",
+    publicBrand: env.PUBLIC_BRAND || "Meyram Cinema",
+    assistantBrand: env.ASSISTANT_BRAND || "Meyram AI",
+    faqAge: STATIC_FAQ.age,
+    faqProcess: STATIC_FAQ.process,
+    faqGeneric: STATIC_FAQ.generic,
+    systemPromptOverride: ""
+  };
+}
+
+function sanitizeAiSettingsInput(settings) {
+  return {
+    id: "default",
+    public_brand: String(settings.publicBrand || settings.public_brand || "Meyram Cinema").trim() || "Meyram Cinema",
+    assistant_brand: String(settings.assistantBrand || settings.assistant_brand || "Meyram AI").trim() || "Meyram AI",
+    faq_age: String(settings.faqAge || settings.faq_age || STATIC_FAQ.age).trim() || STATIC_FAQ.age,
+    faq_process: String(settings.faqProcess || settings.faq_process || STATIC_FAQ.process).trim() || STATIC_FAQ.process,
+    faq_generic: String(settings.faqGeneric || settings.faq_generic || STATIC_FAQ.generic).trim() || STATIC_FAQ.generic,
+    system_prompt_override: String(settings.systemPromptOverride || settings.system_prompt_override || "").trim() || null,
+    updated_at: new Date().toISOString()
+  };
+}
+
+function mapAiSettingsRecord(record) {
+  const fallback = getDefaultAiSettings({});
+  return {
+    id: String(record?.id || fallback.id),
+    publicBrand: String(record?.public_brand || fallback.publicBrand),
+    assistantBrand: String(record?.assistant_brand || fallback.assistantBrand),
+    faqAge: String(record?.faq_age || fallback.faqAge),
+    faqProcess: String(record?.faq_process || fallback.faqProcess),
+    faqGeneric: String(record?.faq_generic || fallback.faqGeneric),
+    systemPromptOverride: String(record?.system_prompt_override || "")
+  };
 }

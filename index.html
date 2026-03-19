@@ -24,18 +24,18 @@
         <div class="site-header__inner">
             <div class="site-header__logo-row">
 
-                <a class="brandmark brandmark--logo" href="#home" aria-label="meyram киностудио home">
+                <a class="brandmark brandmark--logo" href="/" aria-label="meyram киностудио home">
                     <img class="brandmark__image" src="https://meyram.agency/themes/meyram/assets/img/logo.svg" alt="meyram киностудио">
                 </a>
             </div>
 
             <div class="site-header__nav-row">
                 <nav class="main-nav" aria-label="Primary navigation">
-                    <a class="is-active" href="#home">Басты бет</a>
-                    <a href="#casting">Кастингтер</a>
-                    <a href="#actors">Таланттар</a>
-                    <a href="#projects">Жобалар</a>
-                    <a href="#contact">Байланыс</a>
+                    <a class="is-active" href="/">Басты бет</a>
+                    <a href="/casting.html">Кастингтер</a>
+                    <a href="/talents.html">Таланттар</a>
+                    <a href="/projects.html">Жобалар</a>
+                    <a href="/contact.html">Байланыс</a>
                 </nav>
 
                 <div class="header-actions">
@@ -46,7 +46,7 @@
                         </svg>
                         Іздеу
                     </button>
-                    <a class="login-pill" href="#login">Кіру</a>
+                    <a class="login-pill" href="https://admin.apolloai.biz">Кіру</a>
                 </div>
             </div>
         </div>
@@ -127,7 +127,7 @@
                     <div class="hero-dots" id="heroDots"></div>
                 </div>
 
-                <div class="hero-cta-wrap" id="casting">
+                <div class="hero-cta-wrap" id="castingLead">
                     <a class="hero-main-cta" href="https://wa.me/+77757350968" target="_blank" rel="noreferrer">Киноға түскім келеді</a>
                 </div>
             </section>
@@ -232,28 +232,31 @@
                         <ul class="feature-list">
                             <li>Кастингке тіркелуді сайттың төменгі бұрышындағы AI-аватар орындайды.</li>
                             <li>Өтінімде бала аты, жасы, қаласы және ата-ана байланысы жиналады.</li>
-                            <li>Соңында өтінім менеджерге Telegram арқылы автоматты түрде жіберіледі.</li>
+                            <li>Соңында өтінім кастинг жүйесіне автоматты түрде сақталады.</li>
                         </ul>
                     </div>
                 </div>
             </section>
 
             <section class="section open-projects-section" id="projects">
-                <div class="section-heading section-heading--stack">
-                    <div>
-                        <p class="eyebrow">Ашық жобалар</p>
-                        <h2>АШЫҚ ЖОБАЛАР</h2>
-                        <p class="open-projects__intro">
-                            Өзекті жобалар тізімі. Қолжетімді рөлдермен танысып, түсірілімдерге қатысуға өтінім жіберіңіз.
-                            Бәсекелестік жоғары, мүмкіндігіңізді жіберіп алмаңыз.
-                        </p>
+                <div class="open-projects-shell">
+                    <div class="section-heading section-heading--stack section-heading--projects">
+                        <div>
+                            <p class="eyebrow">Ашық жобалар</p>
+                            <h2>АШЫҚ ЖОБАЛАР</h2>
+                            <p class="open-projects__intro">
+                                Өзекті жобалар тізімі. Қолжетімді рөлдермен танысып, түсірілімдерге қатысуға өтінім жіберіңіз.
+                                Бәсекелестік жоғары, мүмкіндігіңізді жіберіп алмаңыз.
+                            </p>
+                        </div>
                     </div>
-                </div>
 
-                <div class="open-projects-list" id="openProjectsGrid"></div>
+                    <div class="open-projects-summary" id="openProjectsSummary"></div>
+                    <div class="open-projects-list" id="openProjectsGrid"></div>
+                </div>
             </section>
 
-            <section class="section banner-section">
+            <section class="section banner-section" id="casting">
                 <div class="banner-panel">
                     <img
                         class="banner-panel__bg"
@@ -280,31 +283,31 @@
             <div id="login"></div>
         </main>
 
-        <footer class="site-footer" id="contact">
-            <a class="brandmark brandmark--compact brandmark--logo" href="#home">
+        <footer class="site-footer site-footer--rich">
+            <a class="brandmark brandmark--compact brandmark--logo" href="/">
                 <img class="brandmark__image" src="https://meyram.agency/themes/meyram/assets/img/logo.svg" alt="meyram киностудио">
             </a>
-            <p>Барлық құқықтар сақталған</p>
+            <nav class="footer-nav" aria-label="Footer navigation"><a class="is-active" href="/">Басты бет</a><a href="/casting.html">Кастингтер</a><a href="/talents.html">Таланттар</a><a href="/projects.html">Жобалар</a><a href="/contact.html">Байланыс</a></nav><div class="site-footer__meta"><p>Шымкент қ., Қазиева көш. 111/3</p><p>Барлық құқықтар сақталған</p></div>
         </footer>
     </div>
 
     <nav class="mobile-dock" aria-label="Mobile quick navigation">
-        <a href="#home">
+        <a class="is-active" href="/">
             <img src="https://meyram.agency/themes/meyram/assets/img/home.svg" alt="">
             <span>Басты</span>
         </a>
-        <a href="#casting">
+        <a href="/casting.html">
             <img src="https://meyram.agency/themes/meyram/assets/img/casting.svg" alt="">
             <span>Кастинг</span>
         </a>
-        <a class="mobile-dock__center" href="#home" aria-label="Meyram">
+        <a class="mobile-dock__center" href="/" aria-label="Meyram">
             <img src="https://meyram.agency/themes/meyram/assets/img/logo.svg" alt="meyram киностудио">
         </a>
-        <a href="#actors">
+        <a href="/talents.html">
             <img src="https://meyram.agency/themes/meyram/assets/img/star.svg" alt="">
-            <span>Актер</span>
+            <span>Таланттар</span>
         </a>
-        <a href="#projects">
+        <a href="/projects.html">
             <img src="https://meyram.agency/themes/meyram/assets/img/news.svg" alt="">
             <span>Жобалар</span>
         </a>
@@ -385,5 +388,6 @@
     <script type="module" src="/video-record.js"></script>
 </body>
 </html>
+
 
 

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meyram Cinema — Жобалар</title>
+    <meta name="description" content="Meyram Cinema ашық фильм жобалары мен рөлдері.">
+    <meta name="apollo-api-base" content="https://apolloai-meyram-api.kanybekovdimash.workers.dev">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="icon" href="https://meyram.agency/themes/meyram/assets/img/logo.svg">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="site-header__inner">
+            <div class="site-header__logo-row">
+                <a class="brandmark brandmark--logo" href="/" aria-label="Meyram home"><img class="brandmark__image" src="https://meyram.agency/themes/meyram/assets/img/logo.svg" alt="Meyram Cinema"></a>
+            </div>
+            <div class="site-header__nav-row">
+                <nav class="main-nav" aria-label="Primary navigation">
+                    <a href="/">Басты бет</a>
+                    <a href="/casting.html">Кастингтер</a>
+                    <a href="/talents.html">Таланттар</a>
+                    <a class="is-active" href="/projects.html">Жобалар</a>
+                    <a href="/contact.html">Байланыс</a>
+                </nav>
+                <div class="header-actions"><button class="search-pill" type="button">Іздеу</button><a class="login-pill" href="https://admin.apolloai.biz">Кіру</a></div>
+            </div>
+        </div>
+    </header>
+
+    <div class="page-shell">
+        <main>
+            <section class="page-hero page-hero--compact">
+                <div class="page-hero__crumbs"><a href="/">Басты бет</a><span>Жобалар</span></div>
+                <p class="eyebrow">Жобалар</p>
+                <h1>АШЫҚ ЖОБАЛАР</h1>
+                <p class="page-hero__lead">Фильмдер мен рөлдер енді бөлек каталог бетінде. Карточканы ашып, жобаның ішкі бетіне өтіп, нақты рөлге өтінім беруге болады.</p>
+            </section>
+
+            <section class="section open-projects-section" id="projects">
+                <div class="section-heading section-heading--stack section-heading--projects">
+                    <div>
+                        <p class="eyebrow">Ашық жобалар</p>
+                        <h2>АШЫҚ ЖОБАЛАР</h2>
+                        <p class="open-projects__intro">Өзекті жобалар тізімі. Қолжетімді рөлдермен танысып, түсірілімдерге қатысуға өтінім жіберіңіз.</p>
+                    </div>
+                </div>
+                <div class="open-projects-summary" id="openProjectsSummary"></div>
+                <div class="open-projects-list" id="openProjectsGrid"></div>
+            </section>
+        </main>
+
+        <footer class="site-footer site-footer--rich">
+            <a class="brandmark brandmark--compact brandmark--logo" href="/"><img class="brandmark__image" src="https://meyram.agency/themes/meyram/assets/img/logo.svg" alt="Meyram Cinema"></a>
+            <nav class="footer-nav" aria-label="Footer navigation"><a href="/">Басты бет</a><a href="/casting.html">Кастингтер</a><a href="/talents.html">Таланттар</a><a class="is-active" href="/projects.html">Жобалар</a><a href="/contact.html">Байланыс</a></nav>
+            <div class="site-footer__meta"><p>Шымкент қ., Қазиева көш. 111/3</p><p>Барлық құқықтар сақталған</p></div>
+        </footer>
+    </div>
+
+    <nav class="mobile-dock" aria-label="Mobile quick navigation">
+        <a href="/"><img src="https://meyram.agency/themes/meyram/assets/img/home.svg" alt=""><span>Басты</span></a>
+        <a href="/casting.html"><img src="https://meyram.agency/themes/meyram/assets/img/casting.svg" alt=""><span>Кастинг</span></a>
+        <a class="mobile-dock__center" href="/" aria-label="Meyram"><img src="https://meyram.agency/themes/meyram/assets/img/logo.svg" alt="Meyram Cinema"></a>
+        <a href="/talents.html"><img src="https://meyram.agency/themes/meyram/assets/img/star.svg" alt=""><span>Таланттар</span></a>
+        <a class="is-active" href="/projects.html"><img src="https://meyram.agency/themes/meyram/assets/img/news.svg" alt=""><span>Жобалар</span></a>
+    </nav>
+
+    <script type="module" src="/projects-home.js"></script>
+</body>
+</html>
+

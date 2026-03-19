@@ -72,9 +72,12 @@ if (-not $SkipSecrets) {
     'AZURE_TTS_VOICE',
     'AZURE_TTS_FORMAT',
     'GROQ_API_KEY',
-    'TELEGRAM_BOT_TOKEN',
-    'TELEGRAM_CHAT_ID',
-    'TELEGRAM_THREAD_ID',
+    'SUPABASE_URL',
+    'SUPABASE_ANON_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'SUPABASE_STORAGE_BUCKET',
+    'ADMIN_ACCESS_TOKEN',
+    'ADMIN_EMAILS',
     'ALLOWED_ORIGINS',
     'RUNPOD_API_KEY',
     'RUNPOD_BASE_URL',
@@ -108,3 +111,4 @@ Write-Host "Deploying Worker to Cloudflare..."
 npx wrangler deploy | Out-Host
 
 Write-Host "Done. Expected custom domain: https://api.apolloai.biz" -ForegroundColor Green
+

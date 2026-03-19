@@ -14,7 +14,12 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
-        project: resolve(__dirname, "project.html")
+        casting: resolve(__dirname, "casting.html"),
+        talents: resolve(__dirname, "talents.html"),
+        projects: resolve(__dirname, "projects.html"),
+        contact: resolve(__dirname, "contact.html"),
+        project: resolve(__dirname, "project.html"),
+        admin: resolve(__dirname, "admin.html")
       }
     }
   }
