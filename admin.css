@@ -7,6 +7,8 @@
     --admin-text-soft: rgba(23, 23, 23, 0.62);
     --admin-gold: #b99457;
     --admin-gold-deep: #8a6633;
+    --admin-green: #2f9e62;
+    --admin-green-deep: #1f7f4c;
     --admin-success: #1f8f5f;
     --admin-shadow: 0 18px 40px rgba(24, 24, 24, 0.08);
     --admin-radius-xl: 28px;
@@ -217,8 +219,8 @@ button { cursor: pointer; }
 
 .admin-body.admin-guest .admin-field input:focus {
     outline: none;
-    border-color: rgba(185, 148, 87, 0.74);
-    box-shadow: 0 0 0 4px rgba(185, 148, 87, 0.14);
+    border-color: rgba(47, 158, 98, 0.74);
+    box-shadow: 0 0 0 4px rgba(47, 158, 98, 0.14);
 }
 
 .admin-body.admin-guest input:-webkit-autofill,
@@ -237,9 +239,9 @@ button { cursor: pointer; }
     width: 100%;
     min-height: 58px;
     border-radius: 18px;
-    background: linear-gradient(135deg, #c79b53 0%, #a7782f 100%);
+    background: linear-gradient(135deg, var(--admin-green) 0%, var(--admin-green-deep) 100%);
     color: #ffffff;
-    box-shadow: 0 18px 34px rgba(167, 120, 47, 0.24);
+    box-shadow: 0 18px 34px rgba(31, 127, 76, 0.24);
 }
 
 .admin-body.admin-guest .admin-auth__hint {
@@ -277,9 +279,9 @@ button { cursor: pointer; }
     border: none;
     border-radius: var(--admin-radius-pill);
     color: #ffffff;
-    background: linear-gradient(135deg, var(--admin-gold), var(--admin-gold-deep));
+    background: linear-gradient(135deg, var(--admin-green), var(--admin-green-deep));
     font-weight: 700;
-    box-shadow: 0 12px 26px rgba(138, 102, 51, 0.18);
+    box-shadow: 0 12px 26px rgba(31, 127, 76, 0.22);
 }
 .admin-button--ghost {
     color: var(--admin-text);

@@ -781,21 +781,21 @@ a {
     justify-content: center;
     border-radius: 50%;
     border: none;
-    background: linear-gradient(135deg, #c8a264, var(--gold-deep));
+    background: #111111;
     color: #ffffff;
-    box-shadow: 0 12px 32px rgba(185, 148, 87, 0.4);
+    box-shadow: 0 14px 34px rgba(17, 17, 17, 0.34);
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
 .chat-fab svg {
-    width: 46px;
-    height: 46px;
+    width: 34px;
+    height: 34px;
 }
 
 .chat-fab:hover {
     transform: scale(1.08);
-    box-shadow: 0 16px 40px rgba(185, 148, 87, 0.5);
+    box-shadow: 0 18px 42px rgba(17, 17, 17, 0.42);
 }
 
 .chat-fab.is-hidden {
@@ -2611,12 +2611,12 @@ a {
     position: relative;
     z-index: 1;
     margin-bottom: 24px;
-    align-items: center;
-    text-align: center;
+    align-items: flex-start;
+    text-align: left;
 }
 
 .section-heading--projects > div {
-    margin: 0 auto;
+    margin: 0;
     max-width: 920px;
 }
 
@@ -2631,7 +2631,7 @@ a {
 }
 
 .open-projects__intro {
-    margin: 18px auto 0;
+    margin: 18px 0 0;
     max-width: 780px;
     color: var(--text-soft);
     font-size: 17px;
