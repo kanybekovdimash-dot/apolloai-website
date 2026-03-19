@@ -86,7 +86,7 @@ const FALLBACK_FAQ = {
 
 const runtime = {
     publicBrand: readMetaContent("apollo-public-brand") || "Meyram Cinema",
-    assistantBrand: readMetaContent("apollo-assistant-brand") || "Meyram AI",
+    assistantBrand: readMetaContent("apollo-assistant-brand") || "",
     apiBase: resolveApiBase()
 };
 
@@ -667,7 +667,7 @@ function bootstrapLocalSession() {
 
 function buildGreetingMessages() {
     return [
-        `Сәлем! Мен ${runtime.publicBrand} AI-көмекшісімін. Кастинг туралы сұрақтарыңызға жауап беремін. Хабарлама жазыңыз!`
+        `Сәлем! ${runtime.publicBrand} кастингі туралы сұрақтарыңызға жауап беремін. Хабарлама жазыңыз!`
     ];
 }
 
@@ -1293,4 +1293,5 @@ function normalize(text) {
 }
 
 init();
+
 

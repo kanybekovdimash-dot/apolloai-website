@@ -120,7 +120,7 @@ export const OPEN_PROJECTS = [
     title: "Алтын сақа",
     genre: "Тарихи приключение",
     poster:
-      "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=600&q=80",
+      "https://images.pexels.com/photos/33674490/pexels-photo-33674490.jpeg?auto=compress&cs=tinysrgb&w=600",
     banner:
       "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600&q=80",
     countdownDate: "2026-04-24T19:00:00+05:00",
