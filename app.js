@@ -4,6 +4,7 @@ const SESSION_ENDPOINT = "/session";
 const CHAT_ENDPOINT = "/chat";
 const LEAD_ENDPOINT = "/lead";
 const CHAT_STORAGE_KEY = "meyram-chat-widget-v2";
+const CHAT_ARCHIVE_KEY = "meyram-chat-archive-v1";
 
 const FIELD_DEFINITIONS = [
     {
@@ -103,7 +104,9 @@ const state = {
     currentField: null,
     submittedAt: null,
     chatHistory: [],
-    messageLog: []
+    messageLog: [],
+    archivedChats: [],
+    historyPanelOpen: false
 };
 
 const elements = {
@@ -120,6 +123,10 @@ const elements = {
     leadProgress: Array.from(document.querySelectorAll("#leadProgress span")),
     chatFab: document.getElementById("avatarFab"),
     closeWidget: document.getElementById("closeWidget"),
+    newChatButton: document.getElementById("newChatButton"),
+    chatHistoryButton: document.getElementById("chatHistoryButton"),
+    chatHistoryPanel: document.getElementById("chatHistoryPanel"),
+    chatHistoryList: document.getElementById("chatHistoryList"),
     openCastingTest: document.getElementById("openCastingTest"),
     openVideoRecord: document.getElementById("openVideoRecord"),
     openVideoModal: document.getElementById("openVideoModal"),
@@ -264,6 +271,10 @@ function stopHeroAutoplay() {
 function initWidget() {
     elements.chatFab?.addEventListener("click", toggleWidget);
     elements.closeWidget?.addEventListener("click", closeWidget);
+    elements.newChatButton?.addEventListener("click", () => {
+        startNewChat();
+    });
+    elements.chatHistoryButton?.addEventListener("click", toggleChatHistoryPanel);
     elements.openCastingTest?.addEventListener("click", () => {
         if (typeof window.openCastingTest === "function") {
             window.openCastingTest();
@@ -310,6 +321,8 @@ function initWidget() {
         autoResizeTextarea({ currentTarget: elements.widgetInput });
         sendWidgetMessage();
     });
+
+    renderChatHistoryList();
 }
 
 function toggleWidget() {
@@ -342,12 +355,263 @@ async function openWidget() {
 
 function closeWidget() {
     hideTypingIndicator();
+    hideChatHistoryPanel();
     setPending(false);
     state.widgetOpen = false;
     elements.widget?.classList.remove("is-open");
     elements.widget?.setAttribute("aria-hidden", "true");
     elements.chatFab?.classList.remove("is-hidden");
     persistWidgetState();
+}
+
+function hideChatHistoryPanel() {
+    state.historyPanelOpen = false;
+    elements.chatHistoryPanel?.setAttribute("hidden", "hidden");
+    elements.chatHistoryButton?.classList.remove("is-active");
+}
+
+function toggleChatHistoryPanel() {
+    if (!elements.chatHistoryPanel) {
+        return;
+    }
+
+    state.historyPanelOpen = !state.historyPanelOpen;
+    elements.chatHistoryPanel.toggleAttribute("hidden", !state.historyPanelOpen);
+    elements.chatHistoryButton?.classList.toggle("is-active", state.historyPanelOpen);
+    renderChatHistoryList();
+}
+
+function normalizeSnapshot(snapshot) {
+    return {
+        sessionId: typeof snapshot?.sessionId === "string" && snapshot.sessionId ? snapshot.sessionId : null,
+        usingLocalFallback: Boolean(snapshot?.usingLocalFallback),
+        lead: snapshot?.lead && typeof snapshot.lead === "object" ? snapshot.lead : {},
+        leadActive: Boolean(snapshot?.leadActive),
+        currentField: snapshot?.currentField || null,
+        submittedAt: snapshot?.submittedAt || null,
+        chatHistory: Array.isArray(snapshot?.chatHistory)
+            ? snapshot.chatHistory.filter((item) => item && (item.role === "user" || item.role === "assistant") && typeof item.content === "string")
+            : [],
+        messageLog: normalizeStoredMessageLog(snapshot?.messageLog),
+        initializedChat: Boolean(snapshot?.initializedChat || (snapshot?.messageLog || []).length)
+    };
+}
+
+function buildWidgetSnapshot() {
+    return {
+        sessionId: state.sessionId,
+        usingLocalFallback: state.usingLocalFallback,
+        lead: JSON.parse(JSON.stringify(state.lead || {})),
+        leadActive: state.leadActive,
+        currentField: state.currentField,
+        submittedAt: state.submittedAt,
+        chatHistory: state.chatHistory.slice(-30).map((item) => ({ role: item.role, content: item.content })),
+        messageLog: JSON.parse(JSON.stringify(state.messageLog.slice(-40))),
+        initializedChat: state.initializedChat
+    };
+}
+
+function hasSnapshotContent(snapshot) {
+    return Boolean(
+        (snapshot?.messageLog || []).length ||
+        (snapshot?.chatHistory || []).length ||
+        snapshot?.initializedChat ||
+        Object.values(snapshot?.lead || {}).some((value) => String(value || "").trim())
+    );
+}
+
+function buildArchiveTitle(snapshot) {
+    const userMessage = snapshot?.messageLog?.find((entry) => entry.kind === "text" && entry.author === "user")?.text
+        || snapshot?.chatHistory?.find((entry) => entry.role === "user")?.content
+        || "Алдыңғы чат";
+    const normalized = userMessage.replace(/\s+/g, " ").trim();
+    return normalized.length > 48 ? `${normalized.slice(0, 45)}...` : normalized;
+}
+
+function buildArchivePreview(snapshot) {
+    const latestMessage = [...(snapshot?.messageLog || [])]
+        .reverse()
+        .find((entry) => entry.kind === "text")?.text || buildArchiveTitle(snapshot);
+    const normalized = latestMessage.replace(/\s+/g, " ").trim();
+    return normalized.length > 70 ? `${normalized.slice(0, 67)}...` : normalized;
+}
+
+function buildArchiveRecord(snapshot) {
+    return {
+        id: `chat-${crypto.randomUUID()}`,
+        title: buildArchiveTitle(snapshot),
+        preview: buildArchivePreview(snapshot),
+        updatedAt: new Date().toISOString(),
+        snapshot: normalizeSnapshot(snapshot)
+    };
+}
+
+function loadArchivedChats(storage = getWidgetStorage()) {
+    if (!storage) {
+        state.archivedChats = [];
+        return;
+    }
+
+    const raw = storage.getItem(CHAT_ARCHIVE_KEY);
+    if (!raw) {
+        state.archivedChats = [];
+        return;
+    }
+
+    try {
+        const parsed = JSON.parse(raw);
+        state.archivedChats = Array.isArray(parsed)
+            ? parsed
+                .filter((item) => item && typeof item === "object" && item.snapshot)
+                .map((item) => ({
+                    id: typeof item.id === "string" && item.id ? item.id : `chat-${crypto.randomUUID()}`,
+                    title: typeof item.title === "string" && item.title ? item.title : buildArchiveTitle(item.snapshot),
+                    preview: typeof item.preview === "string" && item.preview ? item.preview : buildArchivePreview(item.snapshot),
+                    updatedAt: typeof item.updatedAt === "string" && item.updatedAt ? item.updatedAt : new Date().toISOString(),
+                    snapshot: normalizeSnapshot(item.snapshot)
+                }))
+            : [];
+    } catch (error) {
+        state.archivedChats = [];
+        storage.removeItem(CHAT_ARCHIVE_KEY);
+    }
+}
+
+function persistArchivedChats() {
+    const storage = getWidgetStorage();
+    if (!storage) {
+        return;
+    }
+
+    storage.setItem(CHAT_ARCHIVE_KEY, JSON.stringify(state.archivedChats.slice(0, 12)));
+    renderChatHistoryList();
+}
+
+function archiveCurrentChat() {
+    const snapshot = buildWidgetSnapshot();
+    if (!hasSnapshotContent(snapshot)) {
+        return;
+    }
+
+    state.archivedChats = [buildArchiveRecord(snapshot), ...state.archivedChats].slice(0, 12);
+    persistArchivedChats();
+}
+
+function formatArchiveDate(value) {
+    try {
+        return new Intl.DateTimeFormat("kk-KZ", {
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit"
+        }).format(new Date(value));
+    } catch (error) {
+        return "Жақында";
+    }
+}
+
+function renderChatHistoryList() {
+    if (!elements.chatHistoryList) {
+        return;
+    }
+
+    elements.chatHistoryList.innerHTML = "";
+
+    if (!state.archivedChats.length) {
+        const empty = document.createElement("div");
+        empty.className = "chat-history-panel__empty";
+        empty.textContent = "Әзірге бұрынғы чаттар жоқ.";
+        elements.chatHistoryList.appendChild(empty);
+        return;
+    }
+
+    state.archivedChats.forEach((item) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "chat-history-item";
+        button.dataset.chatId = item.id;
+        button.innerHTML = `
+            <strong>${escapeHtml(item.title)}</strong>
+            <span>${escapeHtml(item.preview)}</span>
+            <time>${escapeHtml(formatArchiveDate(item.updatedAt))}</time>
+        `;
+        button.addEventListener("click", () => {
+            openArchivedChat(item.id);
+        });
+        elements.chatHistoryList.appendChild(button);
+    });
+}
+
+function applyWidgetSnapshot(snapshot) {
+    const normalized = normalizeSnapshot(snapshot);
+    state.sessionId = normalized.sessionId;
+    state.usingLocalFallback = normalized.usingLocalFallback;
+    state.lead = normalized.lead;
+    state.leadActive = normalized.leadActive;
+    state.currentField = normalized.currentField;
+    state.submittedAt = normalized.submittedAt;
+    state.chatHistory = normalized.chatHistory;
+    state.messageLog = normalized.messageLog;
+    state.initializedChat = normalized.initializedChat;
+    hideTypingIndicator();
+    clearWidgetMessages();
+    renderMessageLog();
+    syncLeadProgress();
+    if (elements.widgetInput) {
+        elements.widgetInput.value = "";
+        elements.widgetInput.style.height = "auto";
+    }
+}
+
+async function startNewChat() {
+    archiveCurrentChat();
+    state.lead = {};
+    state.leadActive = false;
+    state.currentField = null;
+    state.submittedAt = null;
+    state.chatHistory = [];
+    state.messageLog = [];
+    state.initializedChat = false;
+    state.sessionId = null;
+    state.sessionPromise = null;
+    state.usingLocalFallback = false;
+    clearWidgetMessages();
+    hideTypingIndicator();
+    hideChatHistoryPanel();
+    syncLeadProgress();
+    if (elements.widgetInput) {
+        elements.widgetInput.value = "";
+        elements.widgetInput.style.height = "auto";
+    }
+
+    await ensureSession();
+
+    if (state.widgetOpen) {
+        buildGreetingMessages().forEach((line) => addAssistantMessage(line));
+        state.initializedChat = true;
+    }
+
+    persistWidgetState();
+    window.setTimeout(() => elements.widgetInput?.focus(), 80);
+}
+
+function openArchivedChat(id) {
+    const record = state.archivedChats.find((item) => item.id === id);
+    if (!record) {
+        return;
+    }
+
+    const currentSnapshot = buildWidgetSnapshot();
+    state.archivedChats = state.archivedChats.filter((item) => item.id !== id);
+    if (hasSnapshotContent(currentSnapshot)) {
+        state.archivedChats.unshift(buildArchiveRecord(currentSnapshot));
+    }
+    state.archivedChats = state.archivedChats.slice(0, 12);
+    applyWidgetSnapshot(record.snapshot);
+    hideChatHistoryPanel();
+    persistArchivedChats();
+    persistWidgetState();
+    window.setTimeout(() => elements.widgetInput?.focus(), 80);
 }
 
 
@@ -421,19 +685,9 @@ function persistWidgetState() {
         return;
     }
 
-    const snapshot = {
-        sessionId: state.sessionId,
-        usingLocalFallback: state.usingLocalFallback,
-        lead: state.lead,
-        leadActive: state.leadActive,
-        currentField: state.currentField,
-        submittedAt: state.submittedAt,
-        chatHistory: state.chatHistory.slice(-30),
-        messageLog: state.messageLog.slice(-40),
-        initializedChat: state.initializedChat
-    };
-
+    const snapshot = buildWidgetSnapshot();
     storage.setItem(CHAT_STORAGE_KEY, JSON.stringify(snapshot));
+    persistArchivedChats();
 }
 
 function restoreWidgetState() {
@@ -442,28 +696,22 @@ function restoreWidgetState() {
         return;
     }
 
+    loadArchivedChats(storage);
+
     const raw = storage.getItem(CHAT_STORAGE_KEY);
     if (!raw) {
+        renderChatHistoryList();
         return;
     }
 
     try {
         const snapshot = JSON.parse(raw);
-        state.sessionId = typeof snapshot.sessionId === "string" && snapshot.sessionId ? snapshot.sessionId : null;
-        state.usingLocalFallback = Boolean(snapshot.usingLocalFallback);
-        state.lead = snapshot.lead && typeof snapshot.lead === "object" ? snapshot.lead : {};
-        state.leadActive = Boolean(snapshot.leadActive);
-        state.currentField = snapshot.currentField || null;
-        state.submittedAt = snapshot.submittedAt || null;
-        state.chatHistory = Array.isArray(snapshot.chatHistory)
-            ? snapshot.chatHistory.filter((item) => item && (item.role === "user" || item.role === "assistant") && typeof item.content === "string")
-            : [];
-        state.messageLog = normalizeStoredMessageLog(snapshot.messageLog);
-        state.initializedChat = Boolean(snapshot.initializedChat || state.messageLog.length);
-        renderMessageLog();
+        applyWidgetSnapshot(snapshot);
     } catch (error) {
         storage.removeItem(CHAT_STORAGE_KEY);
     }
+
+    renderChatHistoryList();
 }
 
 function normalizeStoredMessageLog(entries) {

@@ -103,6 +103,7 @@ function openCastingTest() {
         var canvas = document.getElementById("castingCanvas");
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
+        canvas.style.display = "none";
 
         return loadFaceLandmarker();
     }).then(function() {
@@ -251,13 +252,6 @@ function detectLoop(emotion) {
             }
             castingState.lastTimestamp = nowMs;
             var result = faceLandmarker.detectForVideo(video, nowMs);
-
-            // Draw face contours on canvas
-            if (result && result.faceLandmarks && result.faceLandmarks.length > 0) {
-                drawFaceLandmarks(result.faceLandmarks[0]);
-            } else {
-                drawFaceLandmarks(null);
-            }
 
             var desc = document.getElementById("castingEmotionDesc");
             var hasFaces = result && result.faceBlendshapes && result.faceBlendshapes.length > 0;
@@ -424,61 +418,11 @@ var CONTOUR_STYLES = {
     noseBottom:  { color: "rgba(180, 180, 200, 0.4)", width: 1 }
 };
 
-function drawFaceLandmarks(landmarks) {
+function drawFaceLandmarks() {
     var canvas = document.getElementById("castingCanvas");
-    var video = document.getElementById("castingVideo");
-    if (!canvas || !video) return;
-
+    if (!canvas) return;
     var ctx = canvas.getContext("2d");
-    var w = video.videoWidth || 640;
-    var h = video.videoHeight || 480;
-
-    if (canvas.width !== w) canvas.width = w;
-    if (canvas.height !== h) canvas.height = h;
-
-    ctx.clearRect(0, 0, w, h);
-
-    if (!landmarks || !landmarks.length) return;
-
-    var pts = landmarks;
-
-    Object.keys(FACE_CONTOURS).forEach(function(key) {
-        var indices = FACE_CONTOURS[key];
-        var style = CONTOUR_STYLES[key];
-        if (!style) return;
-
-        ctx.beginPath();
-        ctx.strokeStyle = style.color;
-        ctx.lineWidth = style.width;
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
-
-        for (var i = 0; i < indices.length; i++) {
-            var idx = indices[i];
-            if (idx >= pts.length) continue;
-            // Mirror X because video is mirrored via CSS
-            var x = (1 - pts[idx].x) * w;
-            var y = pts[idx].y * h;
-            if (i === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
-        }
-        ctx.stroke();
-    });
-
-    // Draw glow dots on key points (lips corners, eye centers)
-    var glowPoints = [61, 291, 33, 263, 1]; // lip corners, eye outer corners, nose tip
-    ctx.fillStyle = "rgba(200, 162, 100, 0.5)";
-    glowPoints.forEach(function(idx) {
-        if (idx >= pts.length) return;
-        var x = (1 - pts[idx].x) * w;
-        var y = pts[idx].y * h;
-        ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
-        ctx.fill();
-    });
+    ctx && ctx.clearRect(0, 0, canvas.width || 0, canvas.height || 0);
 }
 
 // Global access
