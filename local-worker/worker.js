@@ -148,6 +148,10 @@ export default {
         });
       }
 
+      if (request.method === "GET" && url.pathname === "/admin/users") {
+        return handleAdminUsers(request, env, corsHeaders);
+      }
+
       if (request.method === "GET" && url.pathname === "/admin/video-submissions") {
         return handleAdminCollection(request, env, corsHeaders, {
           table: "video_submissions",
@@ -1326,6 +1330,32 @@ async function handleAdminCollection(request, env, corsHeaders, { table, order =
     corsHeaders
   );
 }
+
+
+async function handleAdminUsers(request, env, corsHeaders) {
+  await requireAdmin(request, env);
+  const url = new URL(request.url);
+  const limit = parseLimitParam(url.searchParams.get("limit"), 24);
+  const pageRaw = Number.parseInt(String(url.searchParams.get("page") || "1"), 10);
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
+
+  const [users, total] = await Promise.all([
+    fetchSupabaseAuthUsers(env, { page, perPage: limit }),
+    fetchSupabaseAuthUsersCount(env)
+  ]);
+
+  return json(
+    {
+      ok: true,
+      total,
+      limit,
+      page,
+      items: users.map(mapAdminAuthUser)
+    },
+    200,
+    corsHeaders
+  );
+}
 async function handleProjectsCatalog(request, env, corsHeaders) {
   const url = new URL(request.url);
   const limit = parseLimitParam(url.searchParams.get("limit"), 20);
@@ -1578,6 +1608,53 @@ async function uploadSupabaseObject(env, { bucket, path, file }) {
   }
 
   return data;
+}
+
+async function fetchSupabaseAuthUsers(env, { page = 1, perPage = 24 } = {}) {
+  ensureSupabaseConfigured(env);
+  const params = new URLSearchParams();
+  params.set("page", String(Math.max(1, page)));
+  params.set("per_page", String(Math.min(Math.max(1, perPage), 100)));
+
+  const response = await fetch(`${normalizeSupabaseUrl(env.SUPABASE_URL)}/auth/v1/admin/users?${params.toString()}`, {
+    headers: buildSupabaseServiceHeaders(env)
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(data?.message || data?.error || "Supabase users fetch failed", 502);
+  }
+
+  return Array.isArray(data?.users) ? data.users : [];
+}
+
+async function fetchSupabaseAuthUsersCount(env) {
+  const perPage = 100;
+  let total = 0;
+
+  for (let page = 1; page <= 50; page += 1) {
+    const users = await fetchSupabaseAuthUsers(env, { page, perPage });
+    total += users.length;
+    if (users.length < perPage) {
+      break;
+    }
+  }
+
+  return total;
+}
+
+function mapAdminAuthUser(user) {
+  const metadata = user?.user_metadata || {};
+  return {
+    id: String(user?.id || "").trim(),
+    email: String(user?.email || "").trim(),
+    phone: String(user?.phone || "").trim(),
+    role: String(user?.app_metadata?.role || user?.role || metadata?.role || "authenticated").trim(),
+    full_name: String(metadata?.full_name || metadata?.name || metadata?.fullName || "").trim(),
+    created_at: String(user?.created_at || "").trim(),
+    last_sign_in_at: String(user?.last_sign_in_at || "").trim(),
+    confirmed_at: String(user?.confirmed_at || user?.email_confirmed_at || "").trim()
+  };
 }
 
 async function parseJsonResponse(response) {

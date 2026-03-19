@@ -36,6 +36,8 @@ const state = {
   error: '',
   dashboard: null,
   applications: [],
+  users: [],
+  usersTotal: 0,
   leads: [],
   videos: [],
   projects: [],
@@ -61,6 +63,8 @@ const elements = {
   projectsCatalogList: document.getElementById('projectsCatalogList'),
   applicationsCount: document.getElementById('applicationsCount'),
   applicationsTableBody: document.getElementById('applicationsTableBody'),
+  usersCount: document.getElementById('usersCount'),
+  usersTableBody: document.getElementById('usersTableBody'),
   leadsCount: document.getElementById('leadsCount'),
   leadsTableBody: document.getElementById('leadsTableBody'),
   videosCount: document.getElementById('videosCount'),
@@ -216,6 +220,8 @@ async function signOut() {
   saveStoredSession(null);
   state.dashboard = null;
   state.applications = [];
+  state.users = [];
+  state.usersTotal = 0;
   state.leads = [];
   state.videos = [];
   state.projects = [];
@@ -239,9 +245,10 @@ async function loadAdminData() {
   try {
     await ensureAdminSession();
 
-    const [dashboard, applications, leads, videos, projects, aiSettings] = await Promise.all([
+    const [dashboard, applications, users, leads, videos, projects, aiSettings] = await Promise.all([
       fetchAdminJson('/admin/dashboard'),
       fetchAdminJson('/admin/project-applications?limit=24'),
+      fetchAdminJson('/admin/users?limit=24'),
       fetchAdminJson('/admin/chat-leads?limit=24'),
       fetchAdminJson('/admin/video-submissions?limit=24'),
       fetchAdminJson('/admin/projects?limit=100'),
@@ -250,6 +257,8 @@ async function loadAdminData() {
 
     state.dashboard = dashboard;
     state.applications = applications.items || [];
+    state.users = (users.items || []).map(normalizeAdminUserRecord);
+    state.usersTotal = Number(users.total || state.users.length || 0);
     state.leads = leads.items || [];
     state.videos = videos.items || [];
     state.projects = (projects.items || []).map(normalizeProjectRecord);
@@ -278,6 +287,24 @@ function renderApplications() {
       <td><div>${escapeHtml(item.parent_name || '—')}</div><div class="admin-cell__meta">${escapeHtml(item.phone || '—')}</div></td>
       <td><span class="admin-pill${item.status === 'new' ? '' : ' admin-pill--muted'}">${escapeHtml(item.status || 'new')}</span></td>
       <td>${formatDate(item.created_at)}</td>
+    </tr>
+  `).join('');
+}
+
+function renderUsers() {
+  elements.usersCount.textContent = String(state.usersTotal || state.users.length || 0);
+  if (!state.users.length) {
+    elements.usersTableBody.innerHTML = `<tr><td colspan="5" class="admin-empty">${state.loading ? 'Жүктелуде...' : 'Әзірге тіркелген қолданушы жоқ.'}</td></tr>`;
+    return;
+  }
+
+  elements.usersTableBody.innerHTML = state.users.map((item) => `
+    <tr>
+      <td><div class="admin-cell__title">${escapeHtml(item.email || '—')}</div><div class="admin-cell__meta">ID: ${escapeHtml(item.id || '—')}</div></td>
+      <td><div>${escapeHtml(item.fullName || '—')}</div><div class="admin-cell__meta">Соңғы кіруі: ${formatDate(item.lastSignInAt)}</div></td>
+      <td>${escapeHtml(item.phone || '—')}</td>
+      <td><span class="admin-pill admin-pill--muted">${escapeHtml(item.role || 'authenticated')}</span></td>
+      <td>${formatDate(item.createdAt)}</td>
     </tr>
   `).join('');
 }
@@ -435,6 +462,7 @@ function render() {
   renderAiSettingsForm();
   renderProjectsPanel();
   renderApplications();
+  renderUsers();
   renderLeads();
   renderVideos();
 }
@@ -447,6 +475,7 @@ function renderStats() {
 
   const cards = [
     ['Жобаға өтінімдер', state.dashboard.stats.projectApplications],
+    ['Қолданушылар', state.usersTotal],
     ['Чат өтінімдері', state.dashboard.stats.chatLeads],
     ['Видео-визиткалар', state.dashboard.stats.videoSubmissions]
   ];
@@ -549,6 +578,19 @@ function normalizeAiSettings(settings) {
     faqProcess: String(settings.faqProcess || '').trim(),
     faqGeneric: String(settings.faqGeneric || '').trim(),
     systemPromptOverride: String(settings.systemPromptOverride || '').trim()
+  };
+}
+
+function normalizeAdminUserRecord(user) {
+  const metadata = user.user_metadata || {};
+  return {
+    id: String(user.id || '').trim(),
+    email: String(user.email || '').trim(),
+    phone: String(user.phone || '').trim(),
+    role: String(user.appRole || user.role || metadata.role || 'authenticated').trim(),
+    fullName: String(metadata.full_name || metadata.name || metadata.fullName || '').trim(),
+    createdAt: String(user.created_at || '').trim(),
+    lastSignInAt: String(user.last_sign_in_at || '').trim()
   };
 }
 
