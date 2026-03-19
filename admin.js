@@ -119,7 +119,7 @@ async function onSubmitAuth(event) {
   const password = String(elements.passwordInput?.value || '').trim();
 
   if (!email || !password) {
-    state.error = 'Email мен құпиясөзді енгізіңіз.';
+    state.error = 'Электрон пошта мен құпиясөзді енгізіңіз.';
     render();
     return;
   }
@@ -153,7 +153,7 @@ async function signInWithPassword(email, password) {
 
   const data = await parseJsonResponse(response);
   if (!response.ok || !data?.access_token) {
-    throw new Error(data?.msg || data?.error_description || data?.error || 'Қате email немесе құпиясөз.');
+    throw new Error(data?.msg || data?.error_description || data?.error || 'Электрон пошта немесе құпиясөз қате.');
   }
 
   return normalizeSession(data);
@@ -285,7 +285,7 @@ function renderApplications() {
 function renderLeads() {
   elements.leadsCount.textContent = String(state.leads.length || 0);
   if (!state.leads.length) {
-    elements.leadsTableBody.innerHTML = `<tr><td colspan="5" class="admin-empty">${state.loading ? 'Жүктелуде...' : 'Әзірге чат лидтері жоқ.'}</td></tr>`;
+    elements.leadsTableBody.innerHTML = `<tr><td colspan="5" class="admin-empty">${state.loading ? 'Жүктелуде...' : 'Әзірге чат өтінімдері жоқ.'}</td></tr>`;
     return;
   }
   elements.leadsTableBody.innerHTML = state.leads.map((item) => `
@@ -346,10 +346,10 @@ async function onSaveProject(event) {
   try {
     roles = JSON.parse(String(formData.get('rolesJson') || '[]').trim() || '[]');
     if (!Array.isArray(roles)) {
-      throw new Error('Roles JSON must be an array');
+      throw new Error('Рөлдер тізімі JSON массив болуы керек');
     }
   } catch {
-    state.error = 'Roles JSON дұрыс емес.';
+    state.error = 'Рөлдер тізімі JSON пішімі дұрыс емес.';
     render();
     return;
   }
@@ -447,7 +447,7 @@ function renderStats() {
 
   const cards = [
     ['Жобаға өтінімдер', state.dashboard.stats.projectApplications],
-    ['Чат лидтері', state.dashboard.stats.chatLeads],
+    ['Чат өтінімдері', state.dashboard.stats.chatLeads],
     ['Видео-визиткалар', state.dashboard.stats.videoSubmissions]
   ];
 
