@@ -190,7 +190,7 @@ async function refreshAuthSession() {
 
 async function ensureAdminSession() {
   if (!state.session?.accessToken) {
-    throw new Error('Админ панельге кіру керек.');
+    throw new Error('Әкімші панеліне кіру керек.');
   }
 
   const expiresSoon = Number(state.session.expiresAt || 0) <= Date.now() + 60_000;

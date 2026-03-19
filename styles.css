@@ -35,6 +35,8 @@ html {
 body {
     margin: 0;
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-ui);
@@ -278,8 +280,16 @@ a {
 }
 
 .page-shell {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
     padding: 30px 0 120px;
 }
+
+.page-shell > main {
+    flex: 1 0 auto;
+}
+
 
 .mobile-only {
     display: none;
@@ -720,6 +730,7 @@ a {
     flex-direction: column;
     align-items: center;
     gap: 18px;
+    margin-top: auto;
     padding: 74px 0 20px;
     color: var(--text-soft);
     text-align: center;
