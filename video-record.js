@@ -246,7 +246,7 @@ function actuallyStartRecording() {
             videoRecState.timer = null;
         }
 
-        var blob = new Blob(videoRecState.chunks, { type: recorder.mimeType || "video/webm" });
+        var blob = new Blob(videoRecState.chunks, { type: normalizeVideoMimeType(recorder.mimeType || "video/webm") });
         videoRecState.blob = blob;
         showPlayback(blob);
     };
@@ -374,9 +374,19 @@ function resolveVideoUploadTargets() {
     });
 }
 
+function normalizeVideoMimeType(value) {
+    var mimeType = String(value || "video/webm").split(";")[0].trim().toLowerCase();
+    if (!mimeType || mimeType === "video/x-matroska") {
+        return "video/webm";
+    }
+    return mimeType;
+}
+
 function createVideoUploadFormData(blob, sessionId) {
     var formData = new FormData();
-    formData.append("video", blob, "video-vizitka-" + Date.now() + ".webm");
+    var safeType = normalizeVideoMimeType(blob && blob.type);
+    var safeBlob = new Blob([blob], { type: safeType });
+    formData.append("video", safeBlob, "video-vizitka-" + Date.now() + ".webm");
     formData.append("sessionId", sessionId);
     return formData;
 }

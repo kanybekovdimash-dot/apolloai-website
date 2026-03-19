@@ -1262,7 +1262,7 @@ async function handleVideo(request, env, corsHeaders) {
     session_id: sessionId,
     file_name: videoFile.name || "video.webm",
     file_size: videoFile.size,
-    content_type: videoFile.type || "video/webm",
+    content_type: normalizeUploadedVideoContentType(videoFile.type || "video/webm"),
     storage_bucket: bucket,
     storage_path: storagePath,
     status: "uploaded"
@@ -1595,7 +1595,7 @@ async function uploadSupabaseObject(env, { bucket, path, file }) {
     method: "POST",
     headers: {
       ...buildSupabaseServiceHeaders(env),
-      "Content-Type": file.type || "application/octet-stream",
+      "Content-Type": normalizeUploadedVideoContentType(file.type || "application/octet-stream"),
       "x-upsert": "false",
       "cache-control": "3600"
     },
@@ -1693,6 +1693,14 @@ function normalizeSupabaseUrl(value) {
 
 function resolveSupabaseVideoBucket(env) {
   return String(env.SUPABASE_STORAGE_BUCKET || "casting-videos").trim() || "casting-videos";
+}
+
+function normalizeUploadedVideoContentType(value) {
+  const type = String(value || "application/octet-stream").split(";")[0].trim().toLowerCase();
+  if (!type || type === "video/x-matroska") {
+    return "video/webm";
+  }
+  return type;
 }
 
 function ensureSupabaseConfigured(env) {
