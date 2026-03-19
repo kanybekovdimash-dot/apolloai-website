@@ -87,10 +87,59 @@ button { cursor: pointer; }
 .admin-sidebar__footer { position: absolute; left: 24px; right: 24px; bottom: 30px; }
 .admin-sidebar__footer a { color: var(--admin-text-soft); }
 
+.admin-body.admin-guest .admin-sidebar,
+.admin-body.admin-guest .admin-hero,
+.admin-body.admin-guest .admin-content,
 .admin-body.admin-guest .admin-sidebar__nav,
 .admin-body.admin-guest .admin-sidebar__footer,
 .admin-body.admin-guest .admin-toolbar {
     display: none;
+}
+
+.admin-body.admin-guest .admin-shell {
+    display: block;
+}
+
+.admin-body.admin-guest .admin-main {
+    min-height: 100vh;
+    padding: 28px 20px;
+    display: grid;
+    place-items: center;
+}
+
+.admin-body.admin-guest .admin-auth {
+    width: min(720px, 100%);
+    margin: 0 auto;
+}
+
+.admin-body.admin-guest .admin-auth__brand {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.admin-body.admin-guest .admin-panel {
+    padding: 34px 30px;
+}
+
+.admin-body.admin-guest .admin-panel__eyebrow,
+.admin-body.admin-guest .admin-auth__hint,
+.admin-body.admin-guest .admin-sidebar__copy {
+    display: none;
+}
+
+.admin-body.admin-guest .admin-panel h2,
+.admin-body.admin-guest .admin-auth__intro {
+    text-align: center;
+}
+
+.admin-body.admin-guest .admin-auth__intro {
+    margin-top: 10px;
+}
+
+.admin-body.admin-guest .admin-form__actions--auth {
+    justify-content: center;
 }
 
 .admin-main { padding: 34px; }
@@ -135,6 +184,22 @@ button { cursor: pointer; }
 .admin-panel p { margin: 8px 0 0; color: var(--admin-text-soft); line-height: 1.75; }
 
 .admin-auth__form { display: grid; gap: 16px; }
+.admin-auth__brand {
+    display: none;
+}
+
+.admin-auth__brand img {
+    width: 90px;
+    height: 90px;
+    object-fit: contain;
+}
+
+.admin-auth__brand strong {
+    font-size: 1.1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
 .admin-auth__hint { margin: 0; color: var(--admin-text-soft); font-size: 0.92rem; }
 .admin-field { display: grid; gap: 8px; flex: 1; }
 .admin-field span { color: var(--admin-text-soft); font-size: 0.92rem; }

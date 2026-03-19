@@ -50,11 +50,15 @@
             </section>
 
             <section class="admin-auth" id="adminAuthCard">
+                <div class="admin-auth__brand" aria-hidden="true">
+                    <img src="https://meyram.agency/themes/meyram/assets/img/logo.svg" alt="Meyram Cinema">
+                    <strong>Meyram Cinema</strong>
+                </div>
                 <div class="admin-panel admin-panel--auth">
                     <div>
                         <span class="admin-panel__eyebrow">Қауіпсіз кіру</span>
                         <h2>Email және құпиясөз арқылы кіру</h2>
-                        <p>Админ панель енді Supabase арқылы кіреді. Жеке admin қолданушының email/password-ы қолданылады.</p>
+                        <p class="admin-auth__intro">Админ панельге кіру үшін email мен құпиясөзді енгізіңіз.</p>
                     </div>
                     <form id="adminAuthForm" class="admin-auth__form admin-auth__form--stacked">
                         <div class="admin-form__grid admin-form__grid--2">
@@ -71,7 +75,7 @@
                             <button class="admin-button" type="submit">Кіру</button>
                         </div>
                     </form>
-                    <p class="admin-auth__hint">Егер қолданушы әлі жасалмаса, Supabase Auth ішінде admin email қосылады.</p>
+                    <p class="admin-auth__hint">Supabase Auth ішіндегі admin email/password қолданылады.</p>
                     <p class="admin-auth__error" id="adminError" hidden></p>
                 </div>
             </section>
