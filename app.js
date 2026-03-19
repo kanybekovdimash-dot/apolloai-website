@@ -1226,7 +1226,7 @@ function initVideoModal() {
         elements.videoModal?.classList.add("is-open");
         elements.videoModal?.setAttribute("aria-hidden", "false");
         if (elements.videoFrame) {
-            elements.videoFrame.src = "https://www.youtube.com/embed/e4S3HhWGpfE?autoplay=1";
+            elements.videoFrame.src = "https://www.youtube.com/embed/TQSVcvnm4yY?autoplay=1&rel=0";
         }
     };
 

@@ -105,72 +105,53 @@ function showCountdown(callback) {
     var videoWrap = document.querySelector(".casting-overlay__video-wrap");
     if (!videoWrap) { callback(); return; }
 
-    // Inject styles once
     if (!document.getElementById("countdownStyles")) {
         var style = document.createElement("style");
         style.id = "countdownStyles";
         style.textContent =
-            "@keyframes cdPulse{0%{transform:scale(0.6);opacity:0}30%{transform:scale(1.1);opacity:1}60%{transform:scale(0.95)}100%{transform:scale(1);opacity:1}}" +
-            "@keyframes cdShrink{0%{transform:scale(1);opacity:1}100%{transform:scale(0.3);opacity:0}}" +
-            "@keyframes cdVignette{0%{box-shadow:inset 0 0 80px rgba(0,0,0,0.8)}100%{box-shadow:inset 0 0 120px rgba(0,0,0,0.95)}}" +
-            "@keyframes cdFlash{0%{opacity:1;background:#fff}100%{opacity:0;background:#fff}}" +
-            "@keyframes cdSepiaFlicker{0%{opacity:0.04}50%{opacity:0.08}100%{opacity:0.04}}";
+            "@keyframes cdPop{0%{transform:scale(0.78);opacity:0}20%{transform:scale(1.05);opacity:1}100%{transform:scale(1);opacity:1}}" +
+            "@keyframes cdFade{0%{opacity:1}100%{opacity:0}}" +
+            "@keyframes cdFlash{0%{opacity:0}20%{opacity:0.8}100%{opacity:0}}" +
+            "@keyframes cdFlicker{0%{opacity:0.06}50%{opacity:0.11}100%{opacity:0.06}}";
         document.head.appendChild(style);
     }
 
     var cdOverlay = document.createElement("div");
     cdOverlay.id = "countdownOverlay";
-    cdOverlay.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;background:#1a1408;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;overflow:hidden;animation:cdVignette 1s ease infinite alternate;";
+    cdOverlay.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:100;overflow:hidden;background:radial-gradient(circle at center,#575757 0%,#1f1f1f 52%,#050505 100%);";
 
-    // Sepia grain overlay
     var grain = document.createElement("div");
-    grain.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;mix-blend-mode:overlay;animation:cdSepiaFlicker 0.3s infinite;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(139,119,80,0.03) 2px,rgba(139,119,80,0.03) 4px);";
+    grain.style.cssText = "position:absolute;inset:0;pointer-events:none;opacity:0.08;mix-blend-mode:screen;animation:cdFlicker 0.18s infinite;background:repeating-linear-gradient(0deg,rgba(255,255,255,0.04) 0,rgba(255,255,255,0.04) 2px,transparent 2px,transparent 4px),repeating-linear-gradient(90deg,rgba(255,255,255,0.03) 0,rgba(255,255,255,0.03) 1px,transparent 1px,transparent 3px);";
     cdOverlay.appendChild(grain);
 
-    // Film perforation holes (left + right)
-    for (var side = 0; side < 2; side++) {
-        for (var h = 0; h < 5; h++) {
-            var hole = document.createElement("div");
-            hole.style.cssText = "position:absolute;width:14px;height:20px;border-radius:3px;border:2px solid rgba(200,162,100,0.25);" +
-                (side === 0 ? "left:6px;" : "right:6px;") +
-                "top:" + (10 + h * 22) + "%;";
-            cdOverlay.appendChild(hole);
-        }
-    }
+    var horizontal = document.createElement("div");
+    horizontal.style.cssText = "position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(255,255,255,0.32);transform:translateY(-50%);";
+    cdOverlay.appendChild(horizontal);
 
-    // Horizontal frame lines (top + bottom)
-    var lineTop = document.createElement("div");
-    lineTop.style.cssText = "position:absolute;top:15%;left:10%;right:10%;height:1px;background:rgba(200,162,100,0.2);";
-    cdOverlay.appendChild(lineTop);
-    var lineBot = document.createElement("div");
-    lineBot.style.cssText = "position:absolute;bottom:15%;left:10%;right:10%;height:1px;background:rgba(200,162,100,0.2);";
-    cdOverlay.appendChild(lineBot);
+    var vertical = document.createElement("div");
+    vertical.style.cssText = "position:absolute;top:0;bottom:0;left:50%;width:2px;background:rgba(255,255,255,0.32);transform:translateX(-50%);";
+    cdOverlay.appendChild(vertical);
 
-    // Number container
+    ["74%", "52%", "32%"].forEach(function(size) {
+        var ring = document.createElement("div");
+        ring.style.cssText = "position:absolute;width:" + size + ";height:" + size + ";border-radius:50%;border:4px solid rgba(255,255,255,0.72);";
+        cdOverlay.appendChild(ring);
+    });
+
     var numBox = document.createElement("div");
     numBox.id = "countdownNum";
-    numBox.style.cssText = "font-size:140px;font-weight:900;color:#c8a264;font-family:Georgia,'Times New Roman',serif;z-index:2;text-shadow:0 0 40px rgba(200,162,100,0.3),0 2px 8px rgba(0,0,0,0.5);line-height:1;opacity:0;";
-    numBox.textContent = "3";
+    numBox.style.cssText = "position:relative;z-index:2;font-size:min(34vw,168px);font-weight:900;color:#fff;font-family:'Arial Black',Arial,sans-serif;line-height:1;text-shadow:0 8px 30px rgba(0,0,0,0.5);opacity:0;";
     cdOverlay.appendChild(numBox);
 
-    // Small label below number
-    var subText = document.createElement("div");
-    subText.id = "countdownSub";
-    subText.style.cssText = "font-size:14px;color:rgba(200,162,100,0.5);font-family:Georgia,serif;letter-spacing:4px;text-transform:uppercase;margin-top:12px;z-index:2;";
-    subText.textContent = "MEYRAM CINEMA";
-    cdOverlay.appendChild(subText);
-
-    // Flash overlay (used at the end)
     var flash = document.createElement("div");
     flash.id = "countdownFlash";
-    flash.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;pointer-events:none;z-index:10;";
+    flash.style.cssText = "position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:5;";
     cdOverlay.appendChild(flash);
 
     videoWrap.style.position = "relative";
     videoWrap.appendChild(cdOverlay);
 
-    // Beep sound
-    function playBeep(freq, duration) {
+    function playTick(freq) {
         try {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
             var osc = ctx.createOscillator();
@@ -178,53 +159,40 @@ function showCountdown(callback) {
             osc.connect(gain);
             gain.connect(ctx.destination);
             osc.frequency.value = freq;
-            osc.type = "sine";
-            gain.gain.value = 0.12;
+            osc.type = "square";
+            gain.gain.value = 0.06;
             osc.start();
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-            osc.stop(ctx.currentTime + duration);
-        } catch(e) {}
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+            osc.stop(ctx.currentTime + 0.08);
+        } catch (e) {}
     }
 
     var count = 3;
 
     function doCount() {
-        var numEl = document.getElementById("countdownNum");
-        if (!numEl) return;
-
         if (count <= 0) {
-            // Film clapper flash
-            var fl = document.getElementById("countdownFlash");
-            if (fl) fl.style.animation = "cdFlash 0.4s ease-out forwards";
-            playBeep(1200, 0.25);
-
+            flash.style.animation = "cdFlash 0.36s ease-out forwards";
+            playTick(1280);
             setTimeout(function() {
-                cdOverlay.style.transition = "opacity 0.3s";
+                cdOverlay.style.transition = "opacity 0.22s ease";
                 cdOverlay.style.opacity = "0";
                 setTimeout(function() {
-                    if (cdOverlay.parentNode) cdOverlay.parentNode.removeChild(cdOverlay);
+                    if (cdOverlay.parentNode) {
+                        cdOverlay.parentNode.removeChild(cdOverlay);
+                    }
                     callback();
-                }, 300);
-            }, 350);
+                }, 220);
+            }, 180);
             return;
         }
 
-        // Animate number: pop in then shrink out
-        numEl.textContent = count;
-        numEl.style.animation = "cdPulse 0.4s ease-out forwards";
+        numBox.textContent = String(count);
+        numBox.style.animation = "none";
+        void numBox.offsetWidth;
+        numBox.style.animation = "cdPop 0.16s ease-out forwards, cdFade 0.22s ease-in 0.72s forwards";
+        playTick(count === 1 ? 1120 : 920);
 
-        // Change sepia tone per count
-        var colors = { 3: "#c8a264", 2: "#e0c080", 1: "#ff6b6b" };
-        numEl.style.color = colors[count] || "#c8a264";
-        numEl.style.textShadow = "0 0 40px " + (colors[count] || "#c8a264") + "40,0 2px 8px rgba(0,0,0,0.5)";
-
-        playBeep(count === 1 ? 1000 : 800, 0.15);
-
-        setTimeout(function() {
-            if (numEl) numEl.style.animation = "cdShrink 0.3s ease-in forwards";
-        }, 650);
-
-        count--;
+        count -= 1;
         setTimeout(doCount, 1000);
     }
 
@@ -394,28 +362,76 @@ function retryRecording() {
     });
 }
 
-function sendVideoToCastingApi(blob) {
-    var sendBtn = document.getElementById("videoRecSend");
-    sendBtn.disabled = true;
-    sendBtn.textContent = "Жіберілуде...";
+function resolveVideoUploadTargets() {
+    var metaBase = (document.querySelector('meta[name="apollo-api-base"]') || {}).content || "";
+    var targets = [
+        (metaBase || "").replace(/\/$/, ""),
+        "https://apolloai-meyram-api.kanybekovdimash.workers.dev"
+    ];
 
-    document.getElementById("videoRecStatus").textContent = "Жүктелуде...";
-    document.getElementById("videoRecDesc").textContent = "Видео кастинг тобына сақталуда";
+    return targets.filter(Boolean).filter(function(target, index, array) {
+        return array.indexOf(target) === index;
+    });
+}
 
-    var apiBase = (document.querySelector('meta[name="apollo-api-base"]') || {}).content || "";
-    apiBase = apiBase.replace(/\/$/, "");
-
+function createVideoUploadFormData(blob, sessionId) {
     var formData = new FormData();
     formData.append("video", blob, "video-vizitka-" + Date.now() + ".webm");
-    formData.append("sessionId", "video-" + Date.now());
+    formData.append("sessionId", sessionId);
+    return formData;
+}
 
-    fetch(apiBase + "/video", {
-        method: "POST",
-        body: formData
-    }).then(function(res) {
-        return res.json();
-    }).then(function(data) {
-        if (data.ok) {
+async function sendVideoToCastingApi(blob) {
+    var sendBtn = document.getElementById("videoRecSend");
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.textContent = "Жіберілуде...";
+    }
+
+    document.getElementById("videoRecStatus").textContent = "Жүктелуде...";
+    document.getElementById("videoRecStatus").style.color = "#ffffff";
+    document.getElementById("videoRecDesc").textContent = "Видео кастинг тобына сақталуда";
+
+    var targets = resolveVideoUploadTargets();
+    var sessionId = "video-" + Date.now();
+    var lastError = "Видеоны жіберу мүмкін болмады";
+
+    for (var i = 0; i < targets.length; i++) {
+        var endpoint = targets[i] + "/video";
+        var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+        var timeoutId = controller ? setTimeout(function() { controller.abort(); }, 45000) : null;
+
+        try {
+            var response = await fetch(endpoint, {
+                method: "POST",
+                mode: "cors",
+                credentials: "omit",
+                body: createVideoUploadFormData(blob, sessionId),
+                signal: controller ? controller.signal : undefined
+            });
+
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+
+            var raw = await response.text();
+            var data = {};
+            if (raw) {
+                try {
+                    data = JSON.parse(raw);
+                } catch (parseError) {
+                    data = { error: raw };
+                }
+            }
+
+            if (!response.ok) {
+                throw new Error(data.error || data.message || ("HTTP " + response.status));
+            }
+
+            if (!data.ok) {
+                throw new Error(data.error || data.message || "Жіберу қатесі");
+            }
+
             document.getElementById("videoRecStatus").textContent = "Жіберілді!";
             document.getElementById("videoRecStatus").style.color = "#4caf50";
             document.getElementById("videoRecDesc").textContent = "Видео кастинг тобына сақталды. Рахмет!";
@@ -423,16 +439,30 @@ function sendVideoToCastingApi(blob) {
             var actions = document.getElementById("videoRecActions");
             actions.innerHTML = '<button class="casting-overlay__start-btn" id="videoRecDone" type="button">Жабу</button>';
             document.getElementById("videoRecDone").addEventListener("click", closeVideoRecord);
-        } else {
-            throw new Error(data.error || "Жіберу қатесі");
+            return;
+        } catch (err) {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+
+            if (err && err.name === "AbortError") {
+                lastError = "Сервер тым баяу жауап берді. Қайта жіберіп көріңіз.";
+            } else if (err && /Failed to fetch/i.test(err.message || "")) {
+                lastError = "Серверге қосылу мүмкін болмады. Интернетті немесе API байланысын тексеріңіз.";
+            } else {
+                lastError = (err && err.message) || lastError;
+            }
         }
-    }).catch(function(err) {
-        document.getElementById("videoRecStatus").textContent = "Қате!";
-        document.getElementById("videoRecStatus").style.color = "#f44336";
-        document.getElementById("videoRecDesc").textContent = err.message || "Видеоны жіберу мүмкін болмады";
+    }
+
+    document.getElementById("videoRecStatus").textContent = "Қате!";
+    document.getElementById("videoRecStatus").style.color = "#f44336";
+    document.getElementById("videoRecDesc").textContent = lastError;
+
+    if (sendBtn) {
         sendBtn.disabled = false;
         sendBtn.textContent = "Қайта жіберу";
-    });
+    }
 }
 
 window.openVideoRecord = openVideoRecord;
