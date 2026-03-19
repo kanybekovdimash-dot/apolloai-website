@@ -112,9 +112,10 @@ button { cursor: pointer; }
 
 .admin-body.admin-guest .admin-main {
     min-height: 100vh;
-    padding: 36px 20px 28px;
+    padding: clamp(28px, 8vh, 84px) 20px 28px;
     display: grid;
-    place-items: center;
+    align-content: start;
+    justify-items: center;
 }
 
 .admin-body.admin-guest .admin-auth {
