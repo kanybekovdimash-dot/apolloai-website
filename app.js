@@ -3,6 +3,7 @@ const HERO_AUTOPLAY_MS = 5000;
 const SESSION_ENDPOINT = "/session";
 const CHAT_ENDPOINT = "/chat";
 const LEAD_ENDPOINT = "/lead";
+const CHAT_STORAGE_KEY = "meyram-chat-widget-v2";
 
 const FIELD_DEFINITIONS = [
     {
@@ -101,7 +102,8 @@ const state = {
     leadActive: false,
     currentField: null,
     submittedAt: null,
-    chatHistory: []
+    chatHistory: [],
+    messageLog: []
 };
 
 const elements = {
@@ -140,6 +142,7 @@ function init() {
     initNavigation();
     initWidget();
     initVideoModal();
+    restoreWidgetState();
     syncLeadProgress();
 }
 
@@ -325,30 +328,28 @@ async function openWidget() {
 
     await ensureSession();
 
-    if (!state.initializedChat) {
+    if (!state.initializedChat && !state.messageLog.length) {
         const greeting = buildGreetingMessages();
         greeting.forEach((line) => addAssistantMessage(line));
         state.initializedChat = true;
+    } else if (state.messageLog.length) {
+        state.initializedChat = true;
     }
 
+    persistWidgetState();
     window.setTimeout(() => elements.widgetInput?.focus(), 80);
 }
 
 function closeWidget() {
+    hideTypingIndicator();
+    setPending(false);
     state.widgetOpen = false;
-    state.initializedChat = false;
-    state.chatHistory = [];
-    state.lead = {};
-    state.leadActive = false;
-    state.currentField = null;
-    state.submittedAt = null;
     elements.widget?.classList.remove("is-open");
     elements.widget?.setAttribute("aria-hidden", "true");
     elements.chatFab?.classList.remove("is-hidden");
-    if (elements.widgetMessages) {
-        elements.widgetMessages.innerHTML = "";
-    }
+    persistWidgetState();
 }
+
 
 async function ensureSession() {
     if (state.sessionPromise) {
@@ -388,14 +389,16 @@ async function bootstrapSession() {
 
     state.sessionId = payload.sessionId || `session-${crypto.randomUUID()}`;
     state.usingLocalFallback = false;
+    persistWidgetState();
 }
 
 function bootstrapLocalSession() {
     if (!state.sessionId) {
-        state.sessionId = `demo-${crypto.randomUUID()}`;
+        state.sessionId = `offline-${crypto.randomUUID()}`;
     }
 
     state.usingLocalFallback = true;
+    persistWidgetState();
 }
 
 function buildGreetingMessages() {
@@ -403,6 +406,133 @@ function buildGreetingMessages() {
         `Сәлем! Мен ${runtime.publicBrand} AI-көмекшісімін. Кастинг туралы сұрақтарыңызға жауап беремін. Хабарлама жазыңыз!`
     ];
 }
+
+function getWidgetStorage() {
+    try {
+        return window.localStorage;
+    } catch (error) {
+        return null;
+    }
+}
+
+function persistWidgetState() {
+    const storage = getWidgetStorage();
+    if (!storage) {
+        return;
+    }
+
+    const snapshot = {
+        sessionId: state.sessionId,
+        usingLocalFallback: state.usingLocalFallback,
+        lead: state.lead,
+        leadActive: state.leadActive,
+        currentField: state.currentField,
+        submittedAt: state.submittedAt,
+        chatHistory: state.chatHistory.slice(-30),
+        messageLog: state.messageLog.slice(-40),
+        initializedChat: state.initializedChat
+    };
+
+    storage.setItem(CHAT_STORAGE_KEY, JSON.stringify(snapshot));
+}
+
+function restoreWidgetState() {
+    const storage = getWidgetStorage();
+    if (!storage) {
+        return;
+    }
+
+    const raw = storage.getItem(CHAT_STORAGE_KEY);
+    if (!raw) {
+        return;
+    }
+
+    try {
+        const snapshot = JSON.parse(raw);
+        state.sessionId = typeof snapshot.sessionId === "string" && snapshot.sessionId ? snapshot.sessionId : null;
+        state.usingLocalFallback = Boolean(snapshot.usingLocalFallback);
+        state.lead = snapshot.lead && typeof snapshot.lead === "object" ? snapshot.lead : {};
+        state.leadActive = Boolean(snapshot.leadActive);
+        state.currentField = snapshot.currentField || null;
+        state.submittedAt = snapshot.submittedAt || null;
+        state.chatHistory = Array.isArray(snapshot.chatHistory)
+            ? snapshot.chatHistory.filter((item) => item && (item.role === "user" || item.role === "assistant") && typeof item.content === "string")
+            : [];
+        state.messageLog = normalizeStoredMessageLog(snapshot.messageLog);
+        state.initializedChat = Boolean(snapshot.initializedChat || state.messageLog.length);
+        renderMessageLog();
+    } catch (error) {
+        storage.removeItem(CHAT_STORAGE_KEY);
+    }
+}
+
+function normalizeStoredMessageLog(entries) {
+    if (!Array.isArray(entries)) {
+        return [];
+    }
+
+    return entries
+        .map((entry) => {
+            if (!entry || typeof entry !== "object") {
+                return null;
+            }
+
+            if (entry.kind === "summary" && entry.summary?.lead) {
+                return {
+                    kind: "summary",
+                    summary: entry.summary,
+                    delivery: entry.delivery || null
+                };
+            }
+
+            if (entry.kind === "text" && (entry.author === "assistant" || entry.author === "user") && typeof entry.text === "string") {
+                return {
+                    kind: "text",
+                    author: entry.author,
+                    text: entry.text
+                };
+            }
+
+            return null;
+        })
+        .filter(Boolean);
+}
+
+function clearWidgetMessages() {
+    if (elements.widgetMessages) {
+        elements.widgetMessages.innerHTML = "";
+    }
+}
+
+function renderMessageLog() {
+    clearWidgetMessages();
+    state.messageLog.forEach((entry) => appendStoredMessage(entry));
+}
+
+function appendStoredMessage(entry) {
+    if (entry.kind === "summary") {
+        renderLeadSummary(entry.summary, entry.delivery, { persist: false, store: false });
+        return;
+    }
+
+    if (entry.kind === "text") {
+        renderMessageEntry(entry.author, entry.text);
+    }
+}
+
+function removeStoredSummary(options = {}) {
+    const { persist = true, clearLog = true } = options;
+    elements.widgetMessages?.querySelector(".summary-card[data-summary='latest']")?.closest(".message")?.remove();
+
+    if (clearLog) {
+        state.messageLog = state.messageLog.filter((entry) => entry.kind !== "summary");
+    }
+
+    if (persist) {
+        persistWidgetState();
+    }
+}
+
 
 function autoResizeTextarea(event) {
     const textarea = event.currentTarget;
@@ -424,9 +554,11 @@ async function sendWidgetMessage() {
     state.chatHistory.push({ role: "user", content: value });
     elements.widgetInput.value = "";
     elements.widgetInput.style.height = "auto";
+    persistWidgetState();
 
     await ensureSession();
     setPending(true);
+    showTypingIndicator();
 
     try {
         const payload = state.usingLocalFallback
@@ -441,25 +573,34 @@ async function sendWidgetMessage() {
                 })
             });
 
+        hideTypingIndicator();
         if (typeof payload.reply === "string" && payload.reply.trim()) {
             state.chatHistory.push({ role: "assistant", content: payload.reply.trim() });
         }
         applyAssistantPayload(payload);
     } catch (error) {
         console.error("Chat request failed", error);
+        hideTypingIndicator();
 
         if (!state.usingLocalFallback) {
-            addAssistantMessage("AI backend уақытша қол жетімсіз. Қосалқы режимге ауысамын.");
+            addAssistantMessage("AI чат уақытша баяулап тұр. Қосалқы режимге ауысып, әңгімені жалғастырамын.");
             bootstrapLocalSession();
-            applyAssistantPayload(runLocalFallbackChat(value));
+            const fallbackPayload = runLocalFallbackChat(value);
+            if (typeof fallbackPayload.reply === "string" && fallbackPayload.reply.trim()) {
+                state.chatHistory.push({ role: "assistant", content: fallbackPayload.reply.trim() });
+            }
+            applyAssistantPayload(fallbackPayload);
         } else {
             addAssistantMessage("Хабарламаны өңдеу мүмкін болмады. Қайталап көріңіз.");
         }
     } finally {
+        hideTypingIndicator();
         setPending(false);
+        persistWidgetState();
         elements.widgetInput?.focus();
     }
 }
+
 
 function exportClientState() {
     return {
@@ -479,10 +620,11 @@ function applyAssistantPayload(payload) {
         addAssistantMessage(payload.reply.trim());
     }
 
-    state.lead = payload.lead || state.lead;
+    state.lead = payload.lead ? { ...state.lead, ...payload.lead } : state.lead;
     state.leadActive = Boolean(payload.leadActive);
     state.currentField = payload.currentField || null;
-    if (payload.submitted) {
+
+    if (payload.submitted && !payload.submittedAt) {
         state.submittedAt = new Date().toISOString();
     } else if (payload.submittedAt) {
         state.submittedAt = payload.submittedAt;
@@ -492,15 +634,19 @@ function applyAssistantPayload(payload) {
 
     if (payload.summary) {
         renderLeadSummary(payload.summary, payload.delivery);
+        return;
     }
+
+    persistWidgetState();
 }
+
 
 function runLocalFallbackChat(message) {
     const normalized = normalize(message);
 
     if (state.submittedAt) {
         return {
-            reply: "Өтінім жиналды. Деректер кастинг жүйесіне сақталды. Сайттағы WhatsApp батырмалары да жұмыс істейді.",
+            reply: "Өтінім дайын. Қажет болса, жаңа анкета бастап, тағы бір баланы қоса аламыз.",
             lead: state.lead,
             leadActive: false,
             currentField: null,
@@ -605,7 +751,7 @@ function advanceLocalLeadFlow(message) {
         delivery: {
             channel: "supabase",
             ok: false,
-            error: "demo mode"
+            error: "local fallback"
         }
     };
 }
@@ -636,9 +782,9 @@ function buildSummaryPayload(lead) {
     };
 }
 
-function renderLeadSummary(summary, delivery) {
-    const existing = elements.widgetMessages?.querySelector(".summary-card[data-summary='latest']");
-    existing?.closest(".message")?.remove();
+function renderLeadSummary(summary, delivery, options = {}) {
+    const { persist = true, store = true } = options;
+    removeStoredSummary({ persist: false, clearLog: store });
 
     const message = document.createElement("div");
     message.className = "message message--assistant";
@@ -655,8 +801,7 @@ function renderLeadSummary(summary, delivery) {
     note.className = "summary-card__note";
     note.textContent = delivery?.ok
         ? "AI-көмекші анкетаны кастинг жүйесіне сақтады."
-        : "Өтінім кастинг жүйесіне автоматты түрде сақталады."
-        ;
+        : "Өтінім дайын. Қажет болса, қайта ашып жалғастыра береміз.";
     card.appendChild(note);
 
     const list = document.createElement("ul");
@@ -696,8 +841,18 @@ function renderLeadSummary(summary, delivery) {
     card.appendChild(actions);
     message.appendChild(card);
     elements.widgetMessages?.appendChild(message);
+
+    if (store) {
+        state.messageLog.push({ kind: "summary", summary, delivery: delivery || null });
+    }
+
+    if (persist) {
+        persistWidgetState();
+    }
+
     scrollMessagesToBottom();
 }
+
 
 function buildWhatsAppLink(lead = state.lead) {
     const text = [
@@ -720,18 +875,30 @@ function resetLeadFlow() {
     state.leadActive = false;
     state.currentField = null;
     state.submittedAt = null;
+    removeStoredSummary({ persist: false });
     syncLeadProgress();
+
     addUserMessage("Жаңа өтінім толтырғым келеді");
-    applyAssistantPayload(state.usingLocalFallback
+    state.chatHistory.push({ role: "user", content: "Жаңа өтінім толтырғым келеді" });
+
+    const payload = state.usingLocalFallback
         ? runLocalFallbackChat("Кастингке жазылғым келеді")
         : {
-            reply: "Дайын. Жаңа анкета бастаймыз. Баланың аты кім?",
+            reply: "Жақсы, жаңа анкета бастаймыз. Баланың аты кім?",
             lead: {},
             leadActive: true,
             currentField: "childName",
             submitted: false
-        });
+        };
+
+    if (typeof payload.reply === "string" && payload.reply.trim()) {
+        state.chatHistory.push({ role: "assistant", content: payload.reply.trim() });
+    }
+
+    applyAssistantPayload(payload);
+    persistWidgetState();
 }
+
 
 function syncLeadProgress() {
     const activeStage = state.leadActive && state.currentField ? PROGRESS_MAP[state.currentField] ?? 0 : -1;
@@ -743,21 +910,54 @@ function syncLeadProgress() {
     });
 }
 
-function addAssistantMessage(text) {
-    addMessage(text, "assistant");
+function addAssistantMessage(text, options = {}) {
+    addMessage(text, "assistant", options);
 }
 
-function addUserMessage(text) {
-    addMessage(text, "user");
+function addUserMessage(text, options = {}) {
+    addMessage(text, "user", options);
 }
 
-function addMessage(text, author) {
+function addMessage(text, author, options = {}) {
+    const { persist = true, store = true } = options;
+    const normalizedText = String(text || "").trim();
+    if (!normalizedText) {
+        return;
+    }
+
+    renderMessageEntry(author, normalizedText);
+
+    if (store) {
+        state.messageLog.push({ kind: "text", author, text: normalizedText });
+    }
+
+    if (persist) {
+        persistWidgetState();
+    }
+}
+
+function renderMessageEntry(author, text) {
     const message = document.createElement("div");
     message.className = `message message--${author}`;
     message.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
     elements.widgetMessages?.appendChild(message);
     scrollMessagesToBottom();
 }
+
+function showTypingIndicator() {
+    hideTypingIndicator();
+
+    const message = document.createElement("div");
+    message.className = "message message--assistant message--typing";
+    message.innerHTML = '<span class="typing-dots" aria-label="Жазып жатыр"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>';
+    elements.widgetMessages?.appendChild(message);
+    scrollMessagesToBottom();
+}
+
+function hideTypingIndicator() {
+    elements.widgetMessages?.querySelector(".message--typing")?.remove();
+}
+
 
 function scrollMessagesToBottom() {
     elements.widgetMessages?.scrollTo({
@@ -769,7 +969,9 @@ function scrollMessagesToBottom() {
 function setPending(isPending) {
     state.pending = isPending;
     elements.widgetSend?.toggleAttribute("disabled", isPending);
+    elements.widgetInput?.toggleAttribute("disabled", isPending);
 }
+
 
 function initVideoModal() {
     const open = () => {
@@ -843,3 +1045,4 @@ function normalize(text) {
 }
 
 init();
+

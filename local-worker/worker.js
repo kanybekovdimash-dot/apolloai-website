@@ -297,42 +297,80 @@ async function handleTts(request, env, corsHeaders) {
 }
 
 async function orchestrateChat({ sessionId, message, history, clientState, env }) {
-  const lead = sanitizeLead(clientState.lead);
+  const normalizedMessage = normalize(message);
+  const resetLead = wantsFreshLead(normalizedMessage);
+  let lead = sanitizeLead(resetLead ? {} : clientState.lead);
+  let submitted = resetLead ? false : Boolean(clientState.submittedAt);
+  let submittedAt = resetLead ? null : clientState.submittedAt || null;
 
   const rawReply = await buildConversationalReply(message, history, env);
-
-  // Extract lead data from the reply's embedded JSON
   const { cleanReply, extractedLead } = parseLeadFromReply(rawReply, lead);
+  lead = sanitizeLead(extractedLead);
 
-  // Save to Supabase if we have at least childName and phone, and not already submitted
-  let submitted = clientState.submittedAt ? true : false;
-  let submittedAt = clientState.submittedAt || null;
+  let reply = cleanReply || STATIC_FAQ.generic;
+  let leadActive = false;
+  let currentField = null;
+  let summary = null;
+  let delivery = null;
 
-  if (
-    extractedLead.childName &&
-    extractedLead.phone &&
-    !clientState.submittedAt
-  ) {
+  const nextField = getNextMissingField(lead);
+  const shouldContinueLead = !submitted && (resetLead || clientState.leadActive || shouldStartLead(normalizedMessage) || hasAnyLeadData(lead));
+
+  if (!submitted && isLeadComplete(lead)) {
+    summary = buildSummaryPayload(lead);
     try {
-      const delivery = await deliverLead({ lead: extractedLead, sessionId, env });
+      delivery = await deliverLead({ lead, sessionId, env });
       if (delivery.ok) {
         submitted = true;
         submittedAt = new Date().toISOString();
       }
-    } catch {
-      // Supabase delivery failed — not critical, continue chatting
+    } catch (error) {
+      delivery = {
+        channel: "supabase",
+        ok: false,
+        error: error.message || "save failed"
+      };
+    }
+
+    if (!cleanReply) {
+      reply = delivery?.ok
+        ? "Дайын! Өтінім қабылданды. Менеджер жақын арада хабарласады."
+        : "Өтінім дайын. Қазір жүйе сақтауға тырысып жатыр, сәл кейін қайта тексереміз.";
+    }
+  } else if (shouldContinueLead) {
+    leadActive = Boolean(nextField);
+    currentField = nextField;
+
+    if (currentField) {
+      const question = getFieldDefinition(currentField).question;
+      if (resetLead) {
+        reply = `Жақсы, бастайық. ${question}`;
+      } else if (!cleanReply) {
+        reply = question;
+      } else if (!hasFollowUpPrompt(cleanReply)) {
+        reply = `${cleanReply}
+
+${question}`;
+      }
     }
   }
 
+  if ((submitted || delivery) && !summary && hasAnyLeadData(lead)) {
+    summary = buildSummaryPayload(lead);
+  }
+
   return {
-    reply: cleanReply,
-    lead: extractedLead,
-    leadActive: false,
-    currentField: null,
+    reply,
+    lead,
+    leadActive,
+    currentField,
     submitted,
-    submittedAt
+    submittedAt,
+    summary,
+    delivery
   };
 }
+
 
 async function deliverLead({ lead, sessionId, env }) {
   const summary = buildSummaryPayload(lead);
@@ -774,6 +812,14 @@ function sanitizeLead(lead) {
   return normalized;
 }
 
+function hasAnyLeadData(lead) {
+  return FIELD_DEFINITIONS.some((field) => Boolean(lead[field.key]));
+}
+
+function isLeadComplete(lead) {
+  return !getNextMissingField(lead);
+}
+
 function getNextMissingField(lead) {
   const next = FIELD_DEFINITIONS.find((field) => !lead[field.key]);
   return next ? next.key : null;
@@ -802,7 +848,11 @@ function shouldStartLead(normalizedMessage) {
 }
 
 function wantsFreshLead(normalizedMessage) {
-  return ["новая заявка", "заново", "снова", "тағы"].some((needle) => normalizedMessage.includes(needle));
+  return ["новая заявка", "заново", "снова", "тағы", "қайтадан", "қайта бастайық"].some((needle) => normalizedMessage.includes(needle));
+}
+
+function hasFollowUpPrompt(text) {
+  return /\?|жазыңыз|айтыңыз|жіберіңіз|көрсетіңіз/i.test(String(text || ""));
 }
 
 function mentionsAge(normalizedMessage) {
