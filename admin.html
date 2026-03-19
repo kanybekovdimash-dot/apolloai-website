@@ -58,24 +58,22 @@
                 <div class="admin-panel admin-panel--auth">
                     <div class="admin-auth__heading">
                         <h2>Кіру</h2>
-                        <p class="admin-auth__intro">Электрон пошта мен құпиясөзді енгізіп, жүйеге кіріңіз.</p>
+                        
                     </div>
                     <form id="adminAuthForm" class="admin-auth__form admin-auth__form--stacked">
                         <div class="admin-form__grid admin-form__grid--2">
-                            <label class="admin-field">
-                                <span>Электрон пошта</span>
-                                <input id="adminEmailInput" name="email" type="email" autocomplete="username" placeholder="admin@meyram.agency">
+                            <label class="admin-field admin-field--auth">
+                                <input id="adminEmailInput" name="email" type="email" autocomplete="username" placeholder="" aria-label="Электрон пошта">
                             </label>
-                            <label class="admin-field">
-                                <span>Құпиясөз</span>
-                                <input id="adminPasswordInput" name="password" type="password" autocomplete="current-password" placeholder="********">
+                            <label class="admin-field admin-field--auth">
+                                <input id="adminPasswordInput" name="password" type="password" autocomplete="current-password" placeholder="" aria-label="Құпиясөз">
                             </label>
                         </div>
                         <div class="admin-form__actions admin-form__actions--auth">
                             <button class="admin-button" type="submit">Кіру</button>
                         </div>
                     </form>
-                    <p class="admin-auth__hint">Тек әкімші қолданушының деректерімен кіруге болады.</p>
+                    
                     <p class="admin-auth__error" id="adminError" hidden></p>
                 </div>
                 <p class="admin-auth__footer">© 2026 Meyram Cinema. Барлық құқықтар қорғалған.</p>

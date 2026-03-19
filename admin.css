@@ -193,11 +193,19 @@ button { cursor: pointer; }
 
 .admin-body.admin-guest .admin-form__grid--2 {
     grid-template-columns: 1fr;
-    gap: 18px;
+    gap: 14px;
 }
 
 .admin-body.admin-guest .admin-field {
     gap: 10px;
+}
+
+.admin-body.admin-guest .admin-field--auth {
+    gap: 0;
+}
+
+.admin-body.admin-guest .admin-field--auth span {
+    display: none;
 }
 
 .admin-body.admin-guest .admin-field span {
