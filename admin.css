@@ -351,12 +351,24 @@ button { cursor: pointer; }
 }
 .admin-stat {
     padding: 22px;
-    border: 1px solid var(--admin-border);
+    border: 1px solid rgba(17, 17, 17, 0.14);
     border-radius: var(--admin-radius-lg);
-    background: linear-gradient(180deg, #ffffff, #fbf8f3);
+    background: linear-gradient(180deg, #ffffff, #f2f2f2);
+    box-shadow: 0 12px 28px rgba(17, 17, 17, 0.08);
 }
-.admin-stat__label { color: var(--admin-text-soft); font-size: 0.95rem; }
-.admin-stat__value { margin-top: 12px; font-size: clamp(2rem, 5vw, 2.8rem); font-weight: 800; }
+.admin-stat__label {
+    color: rgba(17, 17, 17, 0.56);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.admin-stat__value {
+    margin-top: 14px;
+    font-size: clamp(2rem, 5vw, 2.9rem);
+    font-weight: 800;
+    color: #111111;
+}
 
 .admin-content { display: grid; gap: 24px; }
 .admin-grid { display: grid; gap: 18px; }
@@ -499,3 +511,5 @@ button { cursor: pointer; }
     .admin-stats { display: grid; }
     .admin-form__actions { justify-content: stretch; flex-direction: column; }
 }
+
+

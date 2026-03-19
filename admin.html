@@ -26,13 +26,13 @@
             </div>
             <p class="admin-sidebar__copy">Фильмдер, рөлдер, өтінімдер, видео және AI мәтіндері бір жерде басқарылады.</p>
             <nav class="admin-sidebar__nav">
-                <a href="#ai">AI және мәтіндер</a>
-                <a href="#projects">Жобалар</a>
                 <a href="#dashboard">Дашборд</a>
+                <a href="#projects">Жобалар</a>
                 <a href="#applications">Өтінімдер</a>
                 <a href="#users">Қолданушылар</a>
                 <a href="#leads">Чат өтінімдері</a>
                 <a href="#videos">Видео</a>
+                <a href="#ai">AI және мәтіндер</a>
             </nav>
             <div class="admin-sidebar__footer"><a href="https://apolloai.biz/">Негізгі сайтқа оралу</a></div>
         </aside>
@@ -80,7 +80,9 @@
                 <p class="admin-auth__footer">© 2026 Meyram Cinema. Барлық құқықтар қорғалған.</p>
             </section>
 
-            <section class="admin-content" id="adminContent" hidden>
+                        <section class="admin-content" id="adminContent" hidden>
+                <section class="admin-stats" id="adminStats"></section>
+
                 <section class="admin-grid admin-grid--top">
                     <article class="admin-panel" id="ai">
                         <div class="admin-panel__header">
@@ -143,9 +145,6 @@
                         </div>
                     </article>
                 </section>
-
-                <section class="admin-stats" id="adminStats"></section>
-
                 <section class="admin-grid">
                     <article class="admin-panel" id="applications">
                         <div class="admin-panel__header"><div><span class="admin-panel__eyebrow">Жоба өтінімдері</span><h2>Жобаға өтінімдер</h2></div><span class="admin-count" id="applicationsCount">0</span></div>
@@ -171,4 +170,6 @@
     <script type="module" src="./admin.js"></script>
 </body>
 </html>
+
+
 
