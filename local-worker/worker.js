@@ -118,6 +118,10 @@ export default {
         return handleAvatarSession(request, env, corsHeaders);
       }
 
+      if (request.method === "POST" && url.pathname === "/project-application") {
+        return handleProjectApplication(request, env, corsHeaders);
+      }
+
       if (request.method === "POST" && url.pathname === "/video") {
         return handleVideo(request, env, corsHeaders);
       }
@@ -1114,6 +1118,72 @@ function escapeXml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
+}
+
+async function handleProjectApplication(request, env, corsHeaders) {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
+    return json({ ok: false, error: "Telegram is not configured" }, 500, corsHeaders);
+  }
+
+  const payload = await safeJson(request);
+  const applicant = payload.applicant || {};
+  const fullName = String(applicant.fullName || "").trim();
+  const age = String(applicant.age || "").trim();
+  const city = String(applicant.city || "").trim();
+  const parentName = String(applicant.parentName || "").trim();
+  const phone = String(applicant.phone || "").trim();
+  const portfolioUrl = String(applicant.portfolioUrl || "").trim();
+  const experience = String(applicant.experience || "").trim();
+  const note = String(applicant.note || "").trim();
+  const projectTitle = String(payload.projectTitle || "").trim();
+  const roleTitle = String(payload.roleTitle || "").trim();
+
+  if (!projectTitle || !roleTitle || !fullName || !age || !city || !parentName || !phone || !note) {
+    return json({ ok: false, error: "Required application fields are missing" }, 400, corsHeaders);
+  }
+
+  const lines = [
+    "🎭 <b>Жобаға өтінім</b>",
+    `Сессия: <code>${escapeHtml(payload.projectId || crypto.randomUUID())}</code>`,
+    "",
+    `<b>Жоба:</b> ${escapeHtml(projectTitle)}`,
+    `<b>Рөл:</b> ${escapeHtml(roleTitle)}`,
+    `<b>Аты-жөні:</b> ${escapeHtml(fullName)}`,
+    `<b>Жасы:</b> ${escapeHtml(age)}`,
+    `<b>Қала:</b> ${escapeHtml(city)}`,
+    `<b>Ата-ана:</b> ${escapeHtml(parentName)}`,
+    `<b>Телефон:</b> ${escapeHtml(phone)}`,
+    `<b>Портфолио:</b> ${escapeHtml(portfolioUrl || "—")}`,
+    `<b>Тәжірибе:</b> ${escapeHtml(experience || "—")}`,
+    `<b>Питч:</b> ${escapeHtml(note)}`
+  ];
+
+  const body = {
+    chat_id: env.TELEGRAM_CHAT_ID,
+    text: lines.join("\n"),
+    parse_mode: "HTML"
+  };
+
+  if (env.TELEGRAM_THREAD_ID) {
+    body.message_thread_id = Number(env.TELEGRAM_THREAD_ID);
+  }
+
+  const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify(body)
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.ok) {
+    return json(
+      { ok: false, error: data.description || "Telegram sendMessage failed" },
+      502,
+      corsHeaders
+    );
+  }
+
+  return json({ ok: true, message: "Project application sent" }, 200, corsHeaders);
 }
 
 async function handleVideo(request, env, corsHeaders) {
