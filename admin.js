@@ -87,7 +87,7 @@ function init() {
 
 function loadStoredSession() {
   try {
-    const raw = localStorage.getItem(SESSION_KEY);
+    const raw = sessionStorage.getItem(SESSION_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -97,9 +97,9 @@ function loadStoredSession() {
 function saveStoredSession(session) {
   state.session = session;
   if (session) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
   } else {
-    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
   }
 }
 
@@ -422,9 +422,14 @@ function render() {
   elements.error.hidden = !state.error;
   elements.error.textContent = state.error;
 
-  const isAuthed = Boolean(state.session?.accessToken && !state.error && (state.dashboard || state.loading || state.projects.length || state.applications.length));
+  const isAuthed = Boolean(state.session?.accessToken);
+  document.body.classList.toggle('admin-authenticated', isAuthed);
+  document.body.classList.toggle('admin-guest', !isAuthed);
+
   elements.authCard.hidden = isAuthed;
   elements.content.hidden = !isAuthed;
+  elements.refresh.hidden = !isAuthed;
+  elements.signOut.hidden = !isAuthed;
 
   renderStats();
   renderAiSettingsForm();

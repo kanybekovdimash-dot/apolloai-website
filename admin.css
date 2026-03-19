@@ -17,6 +17,8 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
 html { scroll-behavior: smooth; }
 body.admin-body {
     margin: 0;
@@ -84,6 +86,12 @@ button { cursor: pointer; }
 }
 .admin-sidebar__footer { position: absolute; left: 24px; right: 24px; bottom: 30px; }
 .admin-sidebar__footer a { color: var(--admin-text-soft); }
+
+.admin-body.admin-guest .admin-sidebar__nav,
+.admin-body.admin-guest .admin-sidebar__footer,
+.admin-body.admin-guest .admin-toolbar {
+    display: none;
+}
 
 .admin-main { padding: 34px; }
 .admin-hero {
