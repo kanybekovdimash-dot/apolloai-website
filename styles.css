@@ -762,9 +762,18 @@ a {
     font-weight: 600;
 }
 
-.mobile-dock img {
+.mobile-dock img,
+.mobile-dock svg {
     width: 18px;
     height: 18px;
+}
+
+.mobile-dock svg {
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .mobile-dock__center {
@@ -800,8 +809,8 @@ a {
 }
 
 .chat-fab svg {
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
 }
 
 .chat-fab:hover {
