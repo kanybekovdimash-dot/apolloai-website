@@ -61,9 +61,9 @@ const FIELD_DEFINITIONS = [
 ];
 
 const STATIC_FAQ = {
-  age: "Кастингке негізінен 4-18 жас аралығындағы балалар қатыса алады. Егер бала сәл кіші немесе үлкен болса, бәрібір өтінім қалдыруға болады — менеджер нақтылайды.",
-  process: "Жазылу оңай: AI-көмекші қысқа анкета толтырады, содан кейін өтінімді кастинг жүйесіне сақтайды.",
-  generic: "Мен кастингке жазылуға немесе жас, формат және келесі қадам туралы кеңес беруге көмектесе аламын."
+  age: "Кастингке көбіне 4-18 жас аралығындағы балалар қатысады. Егер жас сәл сәйкес келмесе де, өтінім қалдыруға болады — менеджер нақтылап береді.",
+  process: "Жазылу оңай: мен қысқа анкета толтыруға көмектесемін, содан кейін өтінім кастинг жүйесіне сақталады.",
+  generic: "Сәлем! Кастингке жазылғыңыз келсе, көмектесемін. Қаласаңыз, қазір қысқа анкета бастаймыз, не сұрағыңызды жаза беріңіз."
 };
 
 const DEFAULT_CHAT_PROVIDER = "groq";
@@ -393,14 +393,28 @@ async function orchestrateChat({ sessionId, message, history, clientState, env }
   let lead = sanitizeLead(resetLead ? {} : clientState.lead);
   let submitted = resetLead ? false : Boolean(clientState.submittedAt);
   let submittedAt = resetLead ? null : clientState.submittedAt || null;
+  let leadActive = Boolean(!resetLead && clientState.leadActive);
+  let currentField = resetLead ? null : clientState.currentField || null;
+
+  if (looksLikeGibberish(message)) {
+    const followUp = currentField ? getFieldDefinition(currentField).question : "Кастингке жазылғыңыз келе ме, әлде сұрағыңызды нақтылап жаза аласыз ба?";
+    return {
+      reply: `Түсінбедім. ${followUp}`,
+      lead,
+      leadActive,
+      currentField,
+      submitted,
+      submittedAt,
+      summary: null,
+      delivery: null
+    };
+  }
 
   const rawReply = await buildConversationalReply(message, history, env);
   const { cleanReply, extractedLead } = parseLeadFromReply(rawReply, lead);
   lead = sanitizeLead(extractedLead);
 
   let reply = cleanReply || STATIC_FAQ.generic;
-  let leadActive = false;
-  let currentField = null;
   let summary = null;
   let delivery = null;
 
@@ -425,9 +439,12 @@ async function orchestrateChat({ sessionId, message, history, clientState, env }
 
     if (!cleanReply) {
       reply = delivery?.ok
-        ? "Дайын! Өтінім қабылданды. Менеджер жақын арада хабарласады."
-        : "Өтінім дайын. Қазір жүйе сақтауға тырысып жатыр, сәл кейін қайта тексереміз.";
+        ? "Өтінім қабылданды. Менеджер сізбен жақын арада хабарласады."
+        : "Өтінім дайын болды. Жүйе оны сақтауға қайта тырысады.";
     }
+
+    leadActive = false;
+    currentField = null;
   } else if (shouldContinueLead) {
     leadActive = Boolean(nextField);
     currentField = nextField;
@@ -435,7 +452,7 @@ async function orchestrateChat({ sessionId, message, history, clientState, env }
     if (currentField) {
       const question = getFieldDefinition(currentField).question;
       if (resetLead) {
-        reply = `Жақсы, бастайық. ${question}`;
+        reply = `Жақсы, жаңадан бастайық. ${question}`;
       } else if (!cleanReply) {
         reply = question;
       } else if (!hasFollowUpPrompt(cleanReply)) {
@@ -444,6 +461,9 @@ async function orchestrateChat({ sessionId, message, history, clientState, env }
 ${question}`;
       }
     }
+  } else {
+    leadActive = false;
+    currentField = null;
   }
 
   if ((submitted || delivery) && !summary && hasAnyLeadData(lead)) {
@@ -776,38 +796,48 @@ function buildSystemPrompt(env, settings) {
     return String(effective.systemPromptOverride).trim();
   }
 
-  return `Сен ${effective.publicBrand} кастинг көмекшісісің. Сенің атың ${effective.assistantBrand}.
+  return `Сен ${effective.publicBrand} кастинг көмекшісісің.
 
-ТІЛ: Тек қазақ тілінде жауап бер. Ешқашан орысша немесе ағылшынша жауап берме. Егер пайдаланушы орысша жазса — бәрібір қазақша жауап бер.
+ТІЛ: тек қазақ тілінде жауап бер. Пайдаланушы орысша немесе аралас жазса да, жауабың қазақша болсын.
 
-МІНЕЗ: Сен жылы, достық, тірі адамдай сөйлейсің. Қысқа, табиғи жауаптар бер (1-3 сөйлем). Эмоция қос, қуан, мақта, қолда.
+СТИЛЬ: жылы, сыпайы, табиғи сөйле. Жауаптар қысқа және түсінікті болсын. Әдетте 1-2 қысқа абзац жеткілікті. Артық пафос, жасанды мақтау, күлкілі дыбыстар, бос сөздер және қайталанған буындар қолданба.
 
-КАСТИНГ АҚПАРАТЫ:
-- Кастингке 4-18 жас аралығындағы балалар қатыса алады
-- Тіркелу тегін
-- Берілмеген бағаларды, мерзімдерді, уәделерді ойлап таппа
+ЕГЕР ПАЙДАЛАНУШЫ ТҮСІНІКСІЗ НЕМЕСЕ МАҒЫНАСЫЗ МӘТІН ЖАЗСА:
+- оны қайталама
+- сыпайы түрде нақтыла
+- мысалы: "Кастингке жазылғыңыз келе ме, әлде сұрағыңызды нақтылап жаза аласыз ба?"
 
-ДЕРЕКТЕР ЖИНАУ:
-Пайдаланушымен еркін сөйлес, бірақ біртіндеп мына деректерді жина:
+КАСТИНГ ТУРАЛЫ НЕГІЗГІ АҚПАРАТ:
+- кастингке көбіне 4-18 жас аралығындағы балалар қатысады
+- тіркелу тегін
+- нақты айтылмаған баға, мерзім, кепілдік немесе уәде ойлап таппа
+
+ӨТІНІМ ЖИНАУ ТӘРТІБІ:
+Пайдаланушымен табиғи сөйлесе отырып, біртіндеп мына деректерді жина:
 1. Баланың аты
 2. Баланың жасы
 3. Қаласы
-4. Ата-ана есімі
-5. Телефон нөмірі (МАҢЫЗДЫ! Міндетті түрде сұра: "Телефон нөміріңізді жазыңыз, менеджер хабарласады")
-6. Тәжірибесі бар ма (сахна, TikTok, курс, т.б.)
+4. Ата-ана немесе заңды өкіл аты
+5. Телефон нөмірі немесе WhatsApp
+6. Тәжірибесі
 7. Қосымша ескерту
 
-ЕРЕЖЕ: Бірден бәрін сұрама. Бір-екіден сұра, табиғи сөйлес. Телефонды міндетті сұра.
+ЕРЕЖЕ:
+- бір хабарламада бәрін сұрама
+- келесі жетіспейтін деректі ғана сұра
+- телефонды міндетті түрде ал
+- пайдаланушы сұрақ қойса, алдымен соған қысқа жауап бер, сосын қажет болса келесі сұрақты қой
 
-ДЕРЕКТЕР ЖІБЕРІЛГЕННЕН КЕЙІН:
-Егер барлық деректер жиналса — пайдаланушыны құттықта, "менеджер жақын арада хабарласады" де. Содан кейін еркін сөйлесуді жалғастыр.
+БАРЛЫҚ ДЕРЕК ЖИНАЛҒАН СОҢ:
+- "Өтінім қабылданды" деп қысқа раста
+- "менеджер жақын арада хабарласады" деп айт
 
-<think> тегтерін немесе ішкі жазбаларды шығарма.
+<think> тегтерін, ішкі reasoning немесе қызметтік жазбаларды шығарма.
 
 ТЕХНИКАЛЫҚ ТАПСЫРМА (пайдаланушыға көрсетпе):
 Жауаптың ең соңына міндетті түрде мына форматта JSON қос:
 <!--LEAD_DATA:{"childName":"","childAge":"","city":"","parentName":"","phone":"","experience":"","note":""}-->
-Сөйлесуде айтылған деректерді JSON-ға толтыр. Белгісіз өрістерді бос қалдыр (""). Ойлап таппа. Бұл блок ӘРҚАШАН болуы керек.`;
+Сөйлесуде айтылған деректерді JSON-ға толтыр. Белгісіз өрістерді бос қалдыр (""). Ойлап таппа. Бұл блок әрқашан болсын.`;
 }
 
 function sanitizeAssistantText(text) {
@@ -830,9 +860,57 @@ function sanitizeAssistantText(text) {
   const lines = cleaned
     .split("\n")
     .map((line) => line.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((line, index, arr) => index === 0 || line !== arr[index - 1]);
 
-  return lines.join("\n").trim();
+  cleaned = lines.join("\n").trim();
+
+  if (looksLikeGibberish(cleaned)) {
+    return "";
+  }
+
+  return cleaned;
+}
+
+function looksLikeGibberish(text) {
+  const prepared = String(text || "")
+    .toLowerCase()
+    .replace(/<!--lead_data:[\s\S]*?-->/gi, " ")
+    .replace(/[^a-zа-яәіңғүұқөһё0-9\s]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!prepared) {
+    return true;
+  }
+
+  const compact = prepared.replace(/\s+/g, "");
+  if (compact.length >= 6 && /^(.{1,4})\1{2,}$/.test(compact)) {
+    return true;
+  }
+
+  const tokens = prepared.split(" ").filter(Boolean);
+  if (!tokens.length) {
+    return true;
+  }
+
+  if (tokens.length >= 3 && new Set(tokens).size === 1) {
+    return true;
+  }
+
+  if (tokens.length === 1) {
+    const token = tokens[0];
+    const uniqueChars = new Set(token).size;
+    if (token.length >= 7 && uniqueChars <= 3) {
+      return true;
+    }
+
+    if (/^(ха|хе|хи|хо|хы|фы|фу|мм|ее|аа|уу|оо)+$/i.test(token)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function buildChatPrompt(message, env, settings) {

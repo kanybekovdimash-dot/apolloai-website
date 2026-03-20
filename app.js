@@ -79,9 +79,9 @@ const PROGRESS_MAP = {
 };
 
 const FALLBACK_FAQ = {
-    age: "Кастингке негізінен 4-18 жас аралығындағы балалар қатыса алады. Егер бала сәл кіші немесе үлкен болса, бәрібір өтінім қалдыруға болады — менеджер нақтылайды.",
-    process: "Жазылу оңай: AI-көмекші қысқа анкета толтырады, содан кейін өтінімді кастинг жүйесіне сақтайды.",
-    generic: "Мен кастингке жазылуға немесе жас, формат және келесі қадам туралы кеңес беруге көмектесе аламын."
+    age: "Кастингке көбіне 4-18 жас аралығындағы балалар қатысады. Егер жас сәл сәйкес келмесе де, өтінім қалдыруға болады — менеджер нақтылап береді.",
+    process: "Жазылу оңай: мен қысқа анкета толтыруға көмектесемін, содан кейін өтінім кастинг жүйесіне сақталады.",
+    generic: "Сәлем! Кастингке жазылғыңыз келсе, көмектесемін. Қаласаңыз, қазір анкета бастаймыз, не сұрағыңызды жаза беріңіз."
 };
 
 const runtime = {
@@ -125,6 +125,7 @@ const elements = {
     closeWidget: document.getElementById("closeWidget"),
     newChatButton: document.getElementById("newChatButton"),
     chatHistoryButton: document.getElementById("chatHistoryButton"),
+    clearChatButton: document.getElementById("clearChatButton"),
     chatHistoryPanel: document.getElementById("chatHistoryPanel"),
     chatHistoryList: document.getElementById("chatHistoryList"),
     openCastingTest: document.getElementById("openCastingTest"),
@@ -275,6 +276,9 @@ function initWidget() {
         startNewChat();
     });
     elements.chatHistoryButton?.addEventListener("click", toggleChatHistoryPanel);
+    elements.clearChatButton?.addEventListener("click", () => {
+        clearCurrentChat();
+    });
     elements.openCastingTest?.addEventListener("click", () => {
         if (typeof window.openCastingTest === "function") {
             window.openCastingTest();
@@ -563,8 +567,13 @@ function applyWidgetSnapshot(snapshot) {
     }
 }
 
-async function startNewChat() {
-    archiveCurrentChat();
+async function resetConversation(options = {}) {
+    const { archive = false, showGreeting = true } = options;
+
+    if (archive) {
+        archiveCurrentChat();
+    }
+
     state.lead = {};
     state.leadActive = false;
     state.currentField = null;
@@ -579,6 +588,7 @@ async function startNewChat() {
     hideTypingIndicator();
     hideChatHistoryPanel();
     syncLeadProgress();
+
     if (elements.widgetInput) {
         elements.widgetInput.value = "";
         elements.widgetInput.style.height = "auto";
@@ -586,13 +596,32 @@ async function startNewChat() {
 
     await ensureSession();
 
-    if (state.widgetOpen) {
+    if (state.widgetOpen && showGreeting) {
         buildGreetingMessages().forEach((line) => addAssistantMessage(line));
         state.initializedChat = true;
     }
 
     persistWidgetState();
     window.setTimeout(() => elements.widgetInput?.focus(), 80);
+}
+
+async function startNewChat() {
+    await resetConversation({ archive: true, showGreeting: true });
+}
+
+async function clearCurrentChat() {
+    const hasContent = hasSnapshotContent(buildWidgetSnapshot());
+    if (!hasContent) {
+        await resetConversation({ archive: false, showGreeting: true });
+        return;
+    }
+
+    const confirmed = window.confirm("Осы чатты өшіріп, жаңадан бастаймыз ба?");
+    if (!confirmed) {
+        return;
+    }
+
+    await resetConversation({ archive: false, showGreeting: true });
 }
 
 function openArchivedChat(id) {
@@ -667,7 +696,7 @@ function bootstrapLocalSession() {
 
 function buildGreetingMessages() {
     return [
-        `Сәлем! ${runtime.publicBrand} кастингі туралы сұрақтарыңызға жауап беремін. Хабарлама жазыңыз!`
+        `Сәлем! ${runtime.publicBrand} кастингіне жазылуға көмектесемін. Қаласаңыз, анкетаны қазір бастаймыз, не сұрағыңызды жаза беріңіз.`
     ];
 }
 
@@ -892,9 +921,22 @@ function applyAssistantPayload(payload) {
 function runLocalFallbackChat(message) {
     const normalized = normalize(message);
 
+    if (looksLikeGibberishInput(message)) {
+        return {
+            reply: state.leadActive && state.currentField
+                ? `Түсінбедім. ${getFieldDefinition(state.currentField).question}`
+                : "Түсінбедім. Кастингке жазылғыңыз келе ме, әлде сұрағыңызды нақтылап жаза аласыз ба?",
+            lead: state.lead,
+            leadActive: state.leadActive,
+            currentField: state.currentField,
+            submitted: false,
+            submittedAt: state.submittedAt || null
+        };
+    }
+
     if (state.submittedAt) {
         return {
-            reply: "Өтінім дайын. Қажет болса, жаңа анкета бастап, тағы бір баланы қоса аламыз.",
+            reply: "Бұл чат аяқталды. Қаласаңыз, жаңа өтінімді қазір бастаймыз немесе нақты сұрағыңызды жаза беріңіз.",
             lead: state.lead,
             leadActive: false,
             currentField: null,
@@ -951,7 +993,7 @@ function advanceLocalLeadFlow(message) {
         state.currentField = firstField;
 
         return {
-            reply: `Жақсы, бастайық. Бірнеше қысқа сұрақ қоямын және өтінімді дайындаймын. ${getFieldDefinition(firstField).question}`,
+            reply: `Жақсы, бастайық. Бірнеше қысқа сұрақ қоямын. ${getFieldDefinition(firstField).question}`,
             lead,
             leadActive: true,
             currentField: firstField,
@@ -977,7 +1019,7 @@ function advanceLocalLeadFlow(message) {
 
     if (nextField) {
         return {
-            reply: `Қабылданды. ${getFieldDefinition(nextField).question}`,
+            reply: `Жақсы, түсіндім. ${getFieldDefinition(nextField).question}`,
             lead,
             leadActive: true,
             currentField: nextField,
@@ -989,7 +1031,7 @@ function advanceLocalLeadFlow(message) {
     state.submittedAt = submittedAt;
 
     return {
-        reply: "Дайын! Өтінім жиналды. Ол кастинг жүйесіне автоматты түрде сақталады.",
+        reply: "Өтінім дайын болды. Енді оны менеджер қарап шығады.",
         lead,
         leadActive: false,
         currentField: null,
@@ -1006,6 +1048,46 @@ function advanceLocalLeadFlow(message) {
 
 function shouldStartLead(normalizedMessage) {
     return ["кастинг", "жазыл", "тіркел", "анкет", "запис"].some((needle) => normalizedMessage.includes(needle));
+}
+
+function looksLikeGibberishInput(text) {
+    const prepared = String(text || "")
+        .toLowerCase()
+        .replace(/[^a-zа-яәіңғүұқөһё0-9\s]/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    if (!prepared) {
+        return true;
+    }
+
+    const compact = prepared.replace(/\s+/g, "");
+    if (compact.length >= 6 && /^(.{1,4})\1{2,}$/.test(compact)) {
+        return true;
+    }
+
+    const tokens = prepared.split(" " ).filter(Boolean);
+    if (!tokens.length) {
+        return true;
+    }
+
+    if (tokens.length >= 3 && new Set(tokens).size === 1) {
+        return true;
+    }
+
+    if (tokens.length === 1) {
+        const token = tokens[0];
+        const uniqueChars = new Set(token).size;
+        if (token.length >= 7 && uniqueChars <= 3) {
+            return true;
+        }
+
+        if (/^(ха|хе|хи|хо|хы|фы|фу|мм|ее|аа|уу|оо)+$/i.test(token)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function getNextMissingField(lead) {
