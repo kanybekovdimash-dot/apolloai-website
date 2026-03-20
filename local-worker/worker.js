@@ -82,6 +82,12 @@ export default {
     }
 
     try {
+      const adminProjectMatch = url.pathname.match(/^\/admin\/projects\/([^/]+)$/);
+      const adminProjectApplicationMatch = url.pathname.match(/^\/admin\/project-applications\/([^/]+)$/);
+      const adminChatLeadMatch = url.pathname.match(/^\/admin\/chat-leads\/([^/]+)$/);
+      const adminUserMatch = url.pathname.match(/^\/admin\/users\/([^/]+)$/);
+      const adminVideoMatch = url.pathname.match(/^\/admin\/video-submissions\/([^/]+)$/);
+      const adminVideoUrlMatch = url.pathname.match(/^\/admin\/video-submissions\/([^/]+)\/url$/);
       if (request.method === "GET" && url.pathname === "/health") {
         return json(
           {
@@ -95,87 +101,168 @@ export default {
       }
 
       if (request.method === "POST" && url.pathname === "/session") {
-        return handleSession(request, env, corsHeaders);
+        return await handleSession(request, env, corsHeaders);
       }
 
       if (request.method === "POST" && url.pathname === "/chat") {
-        return handleChat(request, env, corsHeaders);
+        return await handleChat(request, env, corsHeaders);
       }
 
       if (request.method === "POST" && url.pathname === "/lead") {
-        return handleLead(request, env, corsHeaders);
+        return await handleLead(request, env, corsHeaders);
       }
 
       if (request.method === "POST" && url.pathname === "/transcribe") {
-        return handleTranscribe(request, env, corsHeaders);
+        return await handleTranscribe(request, env, corsHeaders);
       }
 
       if (request.method === "POST" && url.pathname === "/tts") {
-        return handleTts(request, env, corsHeaders);
+        return await handleTts(request, env, corsHeaders);
       }
 
       if (request.method === "POST" && url.pathname === "/avatar-session") {
-        return handleAvatarSession(request, env, corsHeaders);
+        return await handleAvatarSession(request, env, corsHeaders);
       }
 
       if (request.method === "POST" && url.pathname === "/project-application") {
-        return handleProjectApplication(request, env, corsHeaders);
+        return await handleProjectApplication(request, env, corsHeaders);
       }
 
       if (request.method === "POST" && url.pathname === "/video") {
-        return handleVideo(request, env, corsHeaders);
+        return await handleVideo(request, env, corsHeaders);
       }
 
       if (request.method === "GET" && url.pathname === "/projects-catalog") {
-        return handleProjectsCatalog(request, env, corsHeaders);
+        return await handleProjectsCatalog(request, env, corsHeaders);
       }
 
       if (request.method === "GET" && url.pathname === "/admin/dashboard") {
-        return handleAdminDashboard(request, env, corsHeaders);
+        return await handleAdminDashboard(request, env, corsHeaders);
       }
 
       if (request.method === "GET" && url.pathname === "/admin/project-applications") {
-        return handleAdminCollection(request, env, corsHeaders, {
+        return await handleAdminCollection(request, env, corsHeaders, {
           table: "project_applications",
           order: "created_at.desc"
         });
       }
 
+      if (adminProjectApplicationMatch && request.method === "PATCH") {
+        return await handleAdminUpdateProjectApplication(
+          request,
+          env,
+          corsHeaders,
+          decodeURIComponent(adminProjectApplicationMatch[1])
+        );
+      }
+
+      if (adminProjectApplicationMatch && request.method === "DELETE") {
+        return await handleAdminDeleteProjectApplication(
+          request,
+          env,
+          corsHeaders,
+          decodeURIComponent(adminProjectApplicationMatch[1])
+        );
+      }
+
       if (request.method === "GET" && url.pathname === "/admin/chat-leads") {
-        return handleAdminCollection(request, env, corsHeaders, {
+        return await handleAdminCollection(request, env, corsHeaders, {
           table: "chat_leads",
           order: "created_at.desc"
         });
       }
 
+      if (adminChatLeadMatch && request.method === "PATCH") {
+        return await handleAdminUpdateChatLead(
+          request,
+          env,
+          corsHeaders,
+          decodeURIComponent(adminChatLeadMatch[1])
+        );
+      }
+
+      if (adminChatLeadMatch && request.method === "DELETE") {
+        return await handleAdminDeleteChatLead(
+          request,
+          env,
+          corsHeaders,
+          decodeURIComponent(adminChatLeadMatch[1])
+        );
+      }
+
       if (request.method === "GET" && url.pathname === "/admin/users") {
-        return handleAdminUsers(request, env, corsHeaders);
+        return await handleAdminUsers(request, env, corsHeaders);
+      }
+
+      if (adminUserMatch && request.method === "PATCH") {
+        return await handleAdminUpdateUser(
+          request,
+          env,
+          corsHeaders,
+          decodeURIComponent(adminUserMatch[1])
+        );
+      }
+
+      if (adminUserMatch && request.method === "DELETE") {
+        return await handleAdminDeleteUser(
+          request,
+          env,
+          corsHeaders,
+          decodeURIComponent(adminUserMatch[1])
+        );
       }
 
       if (request.method === "GET" && url.pathname === "/admin/video-submissions") {
-        return handleAdminCollection(request, env, corsHeaders, {
+        return await handleAdminCollection(request, env, corsHeaders, {
           table: "video_submissions",
           order: "created_at.desc"
         });
       }
 
+      if (adminVideoUrlMatch && request.method === "GET") {
+        return await handleAdminVideoUrl(
+          request,
+          env,
+          corsHeaders,
+          decodeURIComponent(adminVideoUrlMatch[1])
+        );
+      }
+
+      if (adminVideoMatch && request.method === "DELETE") {
+        return await handleAdminDeleteVideo(
+          request,
+          env,
+          corsHeaders,
+          decodeURIComponent(adminVideoMatch[1])
+        );
+      }
+
       if (request.method === "GET" && url.pathname === "/admin/projects") {
-        return handleAdminCollection(request, env, corsHeaders, {
+        return await handleAdminCollection(request, env, corsHeaders, {
           table: "projects_catalog",
           order: "updated_at.desc"
         });
       }
 
       if (request.method === "POST" && url.pathname === "/admin/projects") {
-        return handleAdminSaveProject(request, env, corsHeaders);
+        return await handleAdminSaveProject(request, env, corsHeaders);
+      }
+
+      if (adminProjectMatch && request.method === "DELETE") {
+        return await handleAdminDeleteProject(
+          request,
+          env,
+          corsHeaders,
+          decodeURIComponent(adminProjectMatch[1])
+        );
       }
 
       if (request.method === "GET" && url.pathname === "/admin/ai-settings") {
-        return handleAdminGetAiSettings(request, env, corsHeaders);
+        return await handleAdminGetAiSettings(request, env, corsHeaders);
       }
 
       if (request.method === "POST" && url.pathname === "/admin/ai-settings") {
-        return handleAdminSaveAiSettings(request, env, corsHeaders);
+        return await handleAdminSaveAiSettings(request, env, corsHeaders);
       }
 
       return json({ ok: false, error: "Not found" }, 404, corsHeaders);
@@ -1307,6 +1394,25 @@ async function handleAdminUsers(request, env, corsHeaders) {
     corsHeaders
   );
 }
+
+async function handleAdminUpdateUser(request, env, corsHeaders, userId) {
+  await requireAdmin(request, env);
+  const payload = await safeJson(request);
+  const patch = sanitizeAdminUserUpdate(payload.item || payload.user || payload.patch || payload || {});
+
+  if (!Object.keys(patch).length) {
+    throw createHttpError("Nothing to update", 400);
+  }
+
+  const user = await updateSupabaseAuthUser(env, userId, patch);
+  return json({ ok: true, item: mapAdminAuthUser(user) }, 200, corsHeaders);
+}
+
+async function handleAdminDeleteUser(request, env, corsHeaders, userId) {
+  await requireAdmin(request, env);
+  await deleteSupabaseAuthUser(env, userId);
+  return json({ ok: true, id: userId }, 200, corsHeaders);
+}
 async function handleProjectsCatalog(request, env, corsHeaders) {
   const url = new URL(request.url);
   const limit = parseLimitParam(url.searchParams.get("limit"), 20);
@@ -1344,6 +1450,97 @@ async function handleAdminSaveProject(request, env, corsHeaders) {
     200,
     corsHeaders
   );
+}
+
+async function handleAdminDeleteProject(request, env, corsHeaders, projectId) {
+  await requireAdmin(request, env);
+  await deleteSupabaseRows(env, "projects_catalog", "id", projectId);
+  return json({ ok: true, id: projectId }, 200, corsHeaders);
+}
+
+async function handleAdminUpdateProjectApplication(request, env, corsHeaders, applicationId) {
+  await requireAdmin(request, env);
+  const payload = await safeJson(request);
+  const patch = sanitizeProjectApplicationUpdate(payload.item || payload.application || payload.patch || payload || {});
+
+  if (!Object.keys(patch).length) {
+    throw createHttpError("Nothing to update", 400);
+  }
+
+  const [item] = await patchSupabaseRows(env, "project_applications", "id", applicationId, patch);
+  return json({ ok: true, item }, 200, corsHeaders);
+}
+
+async function handleAdminDeleteProjectApplication(request, env, corsHeaders, applicationId) {
+  await requireAdmin(request, env);
+  await deleteSupabaseRows(env, "project_applications", "id", applicationId);
+  return json({ ok: true, id: applicationId }, 200, corsHeaders);
+}
+
+async function handleAdminUpdateChatLead(request, env, corsHeaders, leadId) {
+  await requireAdmin(request, env);
+  const payload = await safeJson(request);
+  const patch = sanitizeChatLeadUpdate(payload.item || payload.lead || payload.patch || payload || {});
+
+  if (!Object.keys(patch).length) {
+    throw createHttpError("Nothing to update", 400);
+  }
+
+  const [item] = await patchSupabaseRows(env, "chat_leads", "id", leadId, patch);
+  return json({ ok: true, item }, 200, corsHeaders);
+}
+
+async function handleAdminDeleteChatLead(request, env, corsHeaders, leadId) {
+  await requireAdmin(request, env);
+  await deleteSupabaseRows(env, "chat_leads", "id", leadId);
+  return json({ ok: true, id: leadId }, 200, corsHeaders);
+}
+
+async function handleAdminVideoUrl(request, env, corsHeaders, videoId) {
+  await requireAdmin(request, env);
+  const [item] = await fetchSupabaseRows(env, "video_submissions", {
+    limit: 1,
+    filters: { id: videoId }
+  });
+
+  if (!item) {
+    throw createHttpError("Video not found", 404);
+  }
+
+  const bucket = String(item.storage_bucket || resolveSupabaseVideoBucket(env)).trim();
+  const path = String(item.storage_path || "").trim();
+  if (!bucket || !path) {
+    throw createHttpError("Video storage path is missing", 400);
+  }
+
+  const signedUrl = await createSupabaseSignedObjectUrl(env, {
+    bucket,
+    path,
+    expiresIn: 3600
+  });
+
+  return json({ ok: true, item, signedUrl }, 200, corsHeaders);
+}
+
+async function handleAdminDeleteVideo(request, env, corsHeaders, videoId) {
+  await requireAdmin(request, env);
+  const [item] = await fetchSupabaseRows(env, "video_submissions", {
+    limit: 1,
+    filters: { id: videoId }
+  });
+
+  if (!item) {
+    throw createHttpError("Video not found", 404);
+  }
+
+  const bucket = String(item.storage_bucket || resolveSupabaseVideoBucket(env)).trim();
+  const path = String(item.storage_path || "").trim();
+  if (bucket && path) {
+    await removeSupabaseObject(env, { bucket, path });
+  }
+
+  await deleteSupabaseRows(env, "video_submissions", "id", videoId);
+  return json({ ok: true, id: videoId }, 200, corsHeaders);
 }
 
 async function handleAdminGetAiSettings(request, env, corsHeaders) {
@@ -1474,6 +1671,51 @@ async function upsertSupabaseRow(env, table, payload, conflictColumn = "id") {
   return Array.isArray(data) ? data : [data];
 }
 
+async function patchSupabaseRows(env, table, idColumn, id, payload, { select = "*" } = {}) {
+  ensureSupabaseConfigured(env);
+  const params = new URLSearchParams();
+  params.set(idColumn, `eq.${id}`);
+  params.set("select", select);
+
+  const response = await fetch(`${getSupabaseRestBaseUrl(env)}/${table}?${params.toString()}`, {
+    method: "PATCH",
+    headers: {
+      ...buildSupabaseServiceHeaders(env),
+      Prefer: "return=representation"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(data?.message || data?.error || `Supabase patch failed for ${table}`, 502);
+  }
+
+  return Array.isArray(data) ? data : [data];
+}
+
+async function deleteSupabaseRows(env, table, idColumn, id) {
+  ensureSupabaseConfigured(env);
+  const params = new URLSearchParams();
+  params.set(idColumn, `eq.${id}`);
+  params.set("select", "*");
+
+  const response = await fetch(`${getSupabaseRestBaseUrl(env)}/${table}?${params.toString()}`, {
+    method: "DELETE",
+    headers: {
+      ...buildSupabaseServiceHeaders(env),
+      Prefer: "return=representation"
+    }
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(data?.message || data?.error || `Supabase delete failed for ${table}`, 502);
+  }
+
+  return Array.isArray(data) ? data : [data];
+}
+
 async function fetchSupabaseRows(env, table, { limit = 24, order = "created_at.desc", select = "*", filters = {} } = {}) {
   ensureSupabaseConfigured(env);
   const params = new URLSearchParams();
@@ -1594,6 +1836,87 @@ async function fetchSupabaseAuthUsersCount(env) {
   return total;
 }
 
+async function updateSupabaseAuthUser(env, userId, payload) {
+  ensureSupabaseConfigured(env);
+  const response = await fetch(`${normalizeSupabaseUrl(env.SUPABASE_URL)}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+    method: "PUT",
+    headers: buildSupabaseServiceHeaders(env),
+    body: JSON.stringify(payload)
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(data?.message || data?.error || "Supabase user update failed", 502);
+  }
+
+  return data?.user || data;
+}
+
+async function deleteSupabaseAuthUser(env, userId) {
+  ensureSupabaseConfigured(env);
+  const response = await fetch(`${normalizeSupabaseUrl(env.SUPABASE_URL)}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+    headers: buildSupabaseServiceHeaders(env)
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(data?.message || data?.error || "Supabase user delete failed", 502);
+  }
+
+  return data;
+}
+
+async function createSupabaseSignedObjectUrl(env, { bucket, path, expiresIn = 3600 }) {
+  ensureSupabaseConfigured(env);
+  const encodedPath = path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  const response = await fetch(`${normalizeSupabaseUrl(env.SUPABASE_URL)}/storage/v1/object/sign/${encodeURIComponent(bucket)}/${encodedPath}`, {
+    method: "POST",
+    headers: buildSupabaseServiceHeaders(env),
+    body: JSON.stringify({ expiresIn })
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(data?.message || data?.error || "Supabase signed URL failed", 502);
+  }
+
+  const signedPath = String(data?.signedURL || data?.signedUrl || "").trim();
+  if (!signedPath) {
+    throw createHttpError("Supabase signed URL is empty", 502);
+  }
+
+  if (/^https?:\/\//i.test(signedPath)) {
+    return signedPath;
+  }
+
+  return `${normalizeSupabaseUrl(env.SUPABASE_URL)}/storage/v1${signedPath}`;
+}
+
+async function removeSupabaseObject(env, { bucket, path }) {
+  ensureSupabaseConfigured(env);
+  const encodedPath = path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  const response = await fetch(`${getSupabaseStorageBaseUrl(env)}/${encodeURIComponent(bucket)}/${encodedPath}`, {
+    method: "DELETE",
+    headers: buildSupabaseServiceHeaders(env)
+  });
+
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(data?.message || data?.error || "Supabase storage delete failed", 502);
+  }
+
+  return data;
+}
+
 function mapAdminAuthUser(user) {
   const metadata = user?.user_metadata || {};
   return {
@@ -1606,6 +1929,105 @@ function mapAdminAuthUser(user) {
     last_sign_in_at: String(user?.last_sign_in_at || "").trim(),
     confirmed_at: String(user?.confirmed_at || user?.email_confirmed_at || "").trim()
   };
+}
+
+function sanitizeOptionalText(value, maxLength = 1000) {
+  return String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function sanitizePatchPayload(payload, allowedKeys) {
+  const patch = {};
+  for (const key of allowedKeys) {
+    if (!(key in payload)) {
+      continue;
+    }
+    const value = sanitizeOptionalText(payload[key], 2000);
+    if (value) {
+      patch[key] = value;
+    }
+  }
+  return patch;
+}
+
+function sanitizeProjectApplicationUpdate(payload) {
+  const patch = sanitizePatchPayload(payload, [
+    "project_title",
+    "role_title",
+    "full_name",
+    "age",
+    "city",
+    "parent_name",
+    "phone",
+    "portfolio_url",
+    "experience",
+    "note",
+    "status"
+  ]);
+
+  if (patch.age) {
+    patch.age = patch.age.replace(/[^\d]/g, "");
+  }
+
+  return patch;
+}
+
+function sanitizeChatLeadUpdate(payload) {
+  const patch = sanitizePatchPayload(payload, [
+    "child_name",
+    "child_age",
+    "city",
+    "parent_name",
+    "phone",
+    "experience",
+    "note"
+  ]);
+
+  if (patch.child_age) {
+    patch.child_age = patch.child_age.replace(/[^\d]/g, "");
+  }
+
+  return patch;
+}
+
+function sanitizeAdminUserUpdate(payload) {
+  const update = {};
+  const email = sanitizeOptionalText(payload.email, 320).toLowerCase();
+  const phone = sanitizeOptionalText(payload.phone, 120);
+  const fullName = sanitizeOptionalText(payload.full_name || payload.fullName, 200);
+  const role = sanitizeOptionalText(payload.role, 80);
+
+  if (email) {
+    update.email = email;
+  }
+
+  if (phone) {
+    update.phone = phone;
+  }
+
+  if (fullName) {
+    update.user_metadata = {
+      ...(update.user_metadata || {}),
+      full_name: fullName,
+      name: fullName,
+      fullName
+    };
+  }
+
+  if (role) {
+    update.app_metadata = {
+      ...(update.app_metadata || {}),
+      role
+    };
+    update.user_metadata = {
+      ...(update.user_metadata || {}),
+      role
+    };
+  }
+
+  return update;
 }
 
 async function parseJsonResponse(response) {
