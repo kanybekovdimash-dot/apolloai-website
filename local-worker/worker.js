@@ -60,10 +60,156 @@ const FIELD_DEFINITIONS = [
   }
 ];
 
+const LEAD_FIELD_HINT_LABELS = {
+  childName: "баланың атын",
+  childAge: "жасын",
+  city: "қаласын",
+  parentName: "ата-анасының атын",
+  phone: "байланыс нөмірін"
+};
+
+const CITY_HINTS = [
+  { value: "Алматы", pattern: /алмат/i },
+  { value: "Астана", pattern: /астан/i },
+  { value: "Шымкент", pattern: /шымкент/i },
+  { value: "Қызылорда", pattern: /қызылорд/i },
+  { value: "Тараз", pattern: /тараз/i },
+  { value: "Түркістан", pattern: /түркістан/i },
+  { value: "Қарағанды", pattern: /қарағанд|караганд/i },
+  { value: "Ақтөбе", pattern: /ақтөб|актоб/i },
+  { value: "Ақтау", pattern: /ақтау|актау/i },
+  { value: "Атырау", pattern: /атырау/i },
+  { value: "Павлодар", pattern: /павлодар/i },
+  { value: "Семей", pattern: /семей/i },
+  { value: "Өскемен", pattern: /өскемен|усть[\s-]?камен/i },
+  { value: "Орал", pattern: /орал|уральск/i },
+  { value: "Көкшетау", pattern: /көкшетау|кокшетау/i },
+  { value: "Қостанай", pattern: /қостанай|костанай/i },
+  { value: "Петропавл", pattern: /петропавл/i },
+  { value: "Талдықорған", pattern: /талдықорған|талдыкорган/i },
+  { value: "Жезқазған", pattern: /жезқазған|жезказган/i },
+  { value: "Қонаев", pattern: /қонаев|конаев/i }
+];
+
+function extractAgeFromText(text) {
+  const source = String(text || "").trim();
+  if (!source) {
+    return "";
+  }
+
+  const hasAgeContext = /(жас|жаста|жастағы|лет|год|балам|баланың|ребенок|ребёнок)/i.test(source);
+  if (hasAgeContext) {
+    const match = source.match(/(1[0-8]|[4-9])/);
+    if (match) {
+      return match[1];
+    }
+  }
+
+  const compactDigits = source.replace(/\D/g, "");
+  if (compactDigits.length >= 10) {
+    return "";
+  }
+
+  const shortMatch = source.match(/^\s*(1[0-8]|[4-9])\s*$/);
+  if (shortMatch) {
+    return shortMatch[1];
+  }
+
+  return "";
+}
+
+function extractCityFromText(text) {
+  const source = String(text || "").trim();
+  if (!source) {
+    return "";
+  }
+
+  const match = CITY_HINTS.find((item) => item.pattern.test(source));
+  return match ? match.value : "";
+}
+
+function extractPhoneFromText(text) {
+  const source = String(text || "").trim();
+  if (!source) {
+    return "";
+  }
+
+  const match = source.match(/(?:\+?\d[\d\s()\-]{8,}\d)/);
+  if (!match) {
+    return "";
+  }
+
+  const digitCount = match[0].replace(/\D/g, "").length;
+  return digitCount >= 10 ? match[0].trim() : "";
+}
+
+function extractNameCandidate(text) {
+  const source = String(text || "").trim();
+  if (!source) {
+    return "";
+  }
+
+  const lowered = normalize(source);
+  if (/\d/.test(source) || extractCityFromText(source) || extractPhoneFromText(source) || /\b(жас|жаста|лет|город|қала|телефон|номер|whatsapp)\b/i.test(lowered)) {
+    return "";
+  }
+
+  const cleaned = source
+    .replace(/[^A-Za-zА-Яа-яӘәІіҢңҒғҮүҰұҚқӨөҺһЁё\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) {
+    return "";
+  }
+
+  const parts = cleaned.split(" ").filter(Boolean);
+  if (!parts.length || parts.length > 4 || parts.some((part) => part.length < 2)) {
+    return "";
+  }
+
+  return cleaned;
+}
+
+function extractLeadHintsFromMessage(text, currentLead = {}) {
+  const hints = {};
+  const age = !currentLead.childAge ? extractAgeFromText(text) : "";
+  const city = !currentLead.city ? extractCityFromText(text) : "";
+  const phone = !currentLead.phone ? extractPhoneFromText(text) : "";
+
+  if (age) {
+    hints.childAge = age;
+  }
+  if (city) {
+    hints.city = city;
+  }
+  if (phone) {
+    hints.phone = phone;
+  }
+
+  return hints;
+}
+
+function buildLeadHintAcknowledgement(hints, previousLead = {}) {
+  const labels = Object.entries(LEAD_FIELD_HINT_LABELS)
+    .filter(([key]) => Boolean(hints[key]) && !previousLead[key])
+    .map(([, label]) => label);
+
+  if (!labels.length) {
+    return "";
+  }
+
+  if (labels.length === 1) {
+    return `${labels[0]} белгілеп қойдым`;
+  }
+
+  const last = labels.pop();
+  return `${labels.join(", ")} және ${last} белгілеп қойдым`;
+}
 const STATIC_FAQ = {
-  age: "Кастингке көбіне 4-18 жас аралығындағы балалар қатысады. Егер жас сәл сәйкес келмесе де, өтінім қалдыруға болады — менеджер нақтылап береді.",
-  process: "Жазылу оңай: мен қысқа анкета толтыруға көмектесемін, содан кейін өтінім кастинг жүйесіне сақталады.",
-  generic: "Сәлем! Кастингке жазылғыңыз келсе, көмектесемін. Қаласаңыз, қазір қысқа анкета бастаймыз, не сұрағыңызды жаза беріңіз."
+  age: "Кастингке негізінен 4-18 жас аралығындағы балалар қатыса алады. Егер жас сәл сәйкес келмесе де, өтінім қалдыруға болады — менеджер нақтылап береді.",
+  process: "Мен қысқа анкетаны біртіндеп толтыруға көмектесемін: баланың аты, жасы, қаласы, ата-ананың байланысы және қысқаша тәжірибесі. Соңында өтінім кастинг жүйесіне сақталады.",
+  generic: "Сәлем! Кастингке тіркелгіңіз келсе, көмектесемін. Қаласаңыз, қазір қысқа анкетаны бастайық немесе нақты сұрағыңызды жазыңыз."
 };
 
 const DEFAULT_CHAT_PROVIDER = "groq";
@@ -395,6 +541,7 @@ async function orchestrateChat({ sessionId, message, history, clientState, env }
   let submittedAt = resetLead ? null : clientState.submittedAt || null;
   let leadActive = Boolean(!resetLead && clientState.leadActive);
   let currentField = resetLead ? null : clientState.currentField || null;
+  const wantsLeadNow = shouldStartLead(normalizedMessage);
 
   if (looksLikeGibberish(message)) {
     const followUp = currentField ? getFieldDefinition(currentField).question : "Кастингке жазылғыңыз келе ме, әлде сұрағыңызды нақтылап жаза аласыз ба?";
@@ -408,6 +555,32 @@ async function orchestrateChat({ sessionId, message, history, clientState, env }
       summary: null,
       delivery: null
     };
+  }
+
+  if (!submitted && !leadActive && !hasAnyLeadData(lead) && wantsLeadNow) {
+    const firstField = getNextMissingField(lead);
+    return {
+      reply: `Жақсы, бастайық. ${getFieldDefinition(firstField).question}`,
+      lead,
+      leadActive: true,
+      currentField: firstField,
+      submitted,
+      submittedAt,
+      summary: null,
+      delivery: null
+    };
+  }
+
+  if (!submitted && currentField) {
+    return await advanceStructuredLeadFlow({
+      lead,
+      currentField,
+      message,
+      sessionId,
+      submitted,
+      submittedAt,
+      env
+    });
   }
 
   const rawReply = await buildConversationalReply(message, history, env);
@@ -482,6 +655,106 @@ ${question}`;
   };
 }
 
+async function advanceStructuredLeadFlow({ lead, currentField, message, sessionId, submitted, submittedAt, env }) {
+  const nextLead = { ...lead };
+  const field = getFieldDefinition(currentField);
+  const rawMessage = String(message || "").trim();
+  const normalizedValue = typeof field.normalize === "function" ? field.normalize(rawMessage) : rawMessage;
+  const extractedHints = extractLeadHintsFromMessage(rawMessage, nextLead);
+
+  Object.assign(nextLead, extractedHints);
+
+  let candidateValue = normalizedValue;
+  if (field.key === "childAge" && extractedHints.childAge) {
+    candidateValue = extractedHints.childAge;
+  } else if (field.key === "city" && extractedHints.city) {
+    candidateValue = extractedHints.city;
+  } else if (field.key === "phone" && extractedHints.phone) {
+    candidateValue = extractedHints.phone;
+  } else if (field.key === "childName" || field.key === "parentName") {
+    const nameCandidate = extractNameCandidate(rawMessage);
+    if (nameCandidate) {
+      candidateValue = typeof field.normalize === "function" ? field.normalize(nameCandidate) : nameCandidate;
+    } else if (Object.keys(extractedHints).length) {
+      const ack = buildLeadHintAcknowledgement(extractedHints, lead);
+      return {
+        reply: ack ? `Рақмет, ${ack}. ${field.question}` : field.question,
+        lead: nextLead,
+        leadActive: true,
+        currentField: field.key,
+        submitted,
+        submittedAt,
+        summary: null,
+        delivery: null
+      };
+    }
+  }
+
+  if (!field.validate(candidateValue)) {
+    const ack = buildLeadHintAcknowledgement(extractedHints, lead);
+    return {
+      reply: ack ? `Рақмет, ${ack}. ${field.question}` : field.error,
+      lead: nextLead,
+      leadActive: true,
+      currentField: field.key,
+      submitted,
+      submittedAt,
+      summary: null,
+      delivery: null
+    };
+  }
+
+  nextLead[field.key] = candidateValue;
+  const nextField = getNextMissingField(nextLead);
+  const acknowledgement = buildLeadHintAcknowledgement({ ...extractedHints, [field.key]: candidateValue }, lead);
+
+  if (nextField) {
+    return {
+      reply: acknowledgement
+        ? `Жақсы, ${acknowledgement}. ${getFieldDefinition(nextField).question}`
+        : `Жақсы, түсіндім. ${getFieldDefinition(nextField).question}`,
+      lead: nextLead,
+      leadActive: true,
+      currentField: nextField,
+      submitted,
+      submittedAt,
+      summary: null,
+      delivery: null
+    };
+  }
+
+  const summary = buildSummaryPayload(nextLead);
+  let delivery = null;
+  let delivered = submitted;
+  let deliveredAt = submittedAt;
+
+  try {
+    delivery = await deliverLead({ lead: nextLead, sessionId, env });
+    if (delivery.ok) {
+      delivered = true;
+      deliveredAt = new Date().toISOString();
+    }
+  } catch (error) {
+    delivery = {
+      channel: "supabase",
+      ok: false,
+      error: error.message || "save failed"
+    };
+  }
+
+  return {
+    reply: delivery?.ok
+      ? "Өтінім қабылданды. Менеджер сізбен жақын арада хабарласады."
+      : "Өтінім дайын болды, бірақ сақтау кезінде қате шықты. Қайта жіберіп көріңіз.",
+    lead: nextLead,
+    leadActive: false,
+    currentField: null,
+    submitted: delivered,
+    submittedAt: deliveredAt,
+    summary,
+    delivery
+  };
+}
 
 async function deliverLead({ lead, sessionId, env }) {
   const summary = buildSummaryPayload(lead);
@@ -824,7 +1097,9 @@ function buildSystemPrompt(env, settings) {
 
 ЕРЕЖЕ:
 - бір хабарламада бәрін сұрама
-- келесі жетіспейтін деректі ғана сұра
+- егер бір хабарламада бірнеше дерек болса, түсінгендерінің бәрін белгілеп ал
+- содан кейін тек келесі жетіспейтін деректі ғана сұра
+- баланың аты мен ата-ананың атын тек анық адам аты жазылса ғана толтыр
 - телефонды міндетті түрде ал
 - пайдаланушы сұрақ қойса, алдымен соған қысқа жауап бер, сосын қажет болса келесі сұрақты қой
 
@@ -1139,10 +1414,15 @@ function buildCorsHeaders(request, env) {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+  const isLoopbackOrigin = /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?$/i.test(requestedOrigin);
+  const loopbackAllowed = allowedOrigins.some((origin) => /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?$/i.test(origin));
 
   let allowOrigin = "*";
   if (allowedOrigins.length) {
-    allowOrigin = allowedOrigins.includes(requestedOrigin) ? requestedOrigin : allowedOrigins[0];
+    allowOrigin =
+      allowedOrigins.includes(requestedOrigin) || (isLoopbackOrigin && loopbackAllowed)
+        ? requestedOrigin
+        : allowedOrigins[0];
   }
 
   return {
@@ -2307,3 +2587,6 @@ function mapAiSettingsRecord(record) {
     systemPromptOverride: String(record?.system_prompt_override || "")
   };
 }
+
+
+
