@@ -1,5 +1,0 @@
-pipecat-ai[google,groq,silero,livekit]==0.0.52
-aiohttp>=3.9
-flask>=3.0
-python-dotenv
-livekit-api>=0.7

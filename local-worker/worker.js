@@ -481,29 +481,6 @@ async function chatWithProvider({ message, history, env, provider, settings }) {
     return extractTextFromGenericResponse(data) || settings?.faqGeneric || STATIC_FAQ.generic;
   }
 
-  if (provider === "runpod") {
-    if (!env.RUNPOD_CHAT_URL) {
-      throw new Error("RUNPOD_CHAT_URL is not configured");
-    }
-
-    const response = await fetch(env.RUNPOD_CHAT_URL, {
-      method: "POST",
-      headers: buildBearerHeaders(env.RUNPOD_API_KEY),
-      body: JSON.stringify({
-        input: {
-          messages: buildProviderMessages(message, env, settings),
-          system_prompt: buildSystemPrompt(env, settings)
-        }
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || "RunPod chat request failed");
-    }
-
-    return extractTextFromGenericResponse(data) || settings?.faqGeneric || STATIC_FAQ.generic;
-  }
 
   return chatWithGroq(message, history, env, settings);
 }
@@ -549,30 +526,6 @@ async function chatWithGroq(message, history, env, settings) {
 }
 
 async function transcribeWithProvider({ audio, language, env, provider }) {
-  if (provider === "runpod") {
-    if (!env.RUNPOD_STT_URL) {
-      throw new Error("RUNPOD_STT_URL is not configured");
-    }
-
-    const base64 = arrayBufferToBase64(await audio.arrayBuffer());
-    const response = await fetch(env.RUNPOD_STT_URL, {
-      method: "POST",
-      headers: buildBearerHeaders(env.RUNPOD_API_KEY),
-      body: JSON.stringify({
-        input: {
-          audio_base64: base64,
-          language
-        }
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || "RunPod transcription failed");
-    }
-
-    return extractTextFromGenericResponse(data);
-  }
 
   if (provider === "huggingface") {
     if (!env.HF_STT_URL || !env.HUGGINGFACE_TOKEN) {
@@ -597,7 +550,7 @@ async function transcribeWithProvider({ audio, language, env, provider }) {
   }
 
   if (provider === "ollama") {
-    throw new Error("Ollama speech-to-text is not configured. Use Groq, Hugging Face, or RunPod for STT.");
+    throw new Error("Ollama speech-to-text is not configured. Use Groq or Hugging Face for STT.");
   }
 
   return transcribeWithGroq({ audio, language, env });
@@ -876,7 +829,7 @@ function buildAvatarPayload(env) {
 
   return {
     enabled: Boolean(previewUrl || posterUrl || videoUrl || streamUrl || audioUrl),
-    provider: env.AVATAR_PROVIDER || "Pipecat + LiteAvatar",
+    provider: env.AVATAR_PROVIDER || "Meyram Cinema",
     previewUrl,
     posterUrl,
     streamUrl,
@@ -896,12 +849,11 @@ function buildSpeechPayload(env) {
     provider === "yandex"
       ? env.YANDEX_TTS_FORMAT || "mp3"
       : env.AZURE_TTS_FORMAT || "audio-24khz-48kbitrate-mono-mp3";
-  const endpoint = ["azure", "yandex"].includes(provider) ? "/tts" : env.RUNPOD_TTS_URL || env.TTS_ENDPOINT || "";
+  const endpoint = ["azure", "yandex"].includes(provider) ? "/tts" : env.TTS_ENDPOINT || "";
   const enabled =
     Boolean(audioUrl) ||
     (provider === "yandex" && Boolean(env.YANDEX_API_KEY)) ||
-    (provider === "azure" && Boolean(env.AZURE_SPEECH_KEY && env.AZURE_SPEECH_REGION)) ||
-    (provider === "runpod" && Boolean(endpoint));
+    (provider === "azure" && Boolean(env.AZURE_SPEECH_KEY && env.AZURE_SPEECH_REGION));
 
   return {
     enabled,
@@ -991,9 +943,8 @@ function getProviderInfo(env) {
     tts: {
       provider: getTtsProvider(env),
       voice: getTtsProvider(env) === "yandex" ? normalizeYandexVoice(env.YANDEX_TTS_VOICE || "zhanar") : env.AZURE_TTS_VOICE || "kk-KZ-AigulNeural",
-      endpoint: ["azure", "yandex"].includes(getTtsProvider(env)) ? "/tts" : env.RUNPOD_TTS_URL || env.TTS_ENDPOINT || ""
+      endpoint: ["azure", "yandex"].includes(getTtsProvider(env)) ? "/tts" : env.TTS_ENDPOINT || ""
     },
-    runpodBaseUrl: env.RUNPOD_BASE_URL || ""
   };
 }
 
