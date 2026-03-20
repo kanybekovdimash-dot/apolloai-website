@@ -22,7 +22,7 @@ function createVideoRecordOverlay() {
                 '<video id="videoRecPlayback" playsinline hidden></video>' +
             '</div>' +
             '<div class="casting-overlay__panel">' +
-                '<p class="casting-overlay__emotion-label" id="videoRecStatus">Дайын</p>' +
+                '<p class="casting-overlay__emotion-label" id="videoRecStatus">Дайынсызба</p>' +
                 '<p class="casting-overlay__emotion-desc" id="videoRecDesc">Өзіңіз туралы қысқа видео жазыңыз (2 мин дейін)</p>' +
                 '<div class="casting-overlay__meter">' +
                     '<div class="casting-overlay__meter-fill" id="videoRecProgress" style="width:0%;background:linear-gradient(90deg,#c8a264,#e0c080)"></div>' +
@@ -311,7 +311,7 @@ function showPlayback(blob) {
     playback.style.objectFit = "cover";
     playback.play();
 
-    document.getElementById("videoRecStatus").textContent = "Дайын!";
+    document.getElementById("videoRecStatus").textContent = "Дайынсызба";
     document.getElementById("videoRecStatus").style.color = "#4caf50";
     document.getElementById("videoRecDesc").textContent = "Видеоны қарап шығыңыз";
 
@@ -320,10 +320,15 @@ function showPlayback(blob) {
 
     var actions = document.getElementById("videoRecActions");
     actions.innerHTML =
-        '<button class="casting-overlay__start-btn" id="videoRecRetry" type="button" style="background:#666">Қайта жазу</button>' +
-        '<button class="casting-overlay__start-btn" id="videoRecSend" type="button">Жіберу</button>';
+        '<button class="casting-overlay__start-btn" id="videoRecDelete" type="button" style="background:#c62828;color:#fff">Жою</button>' +
+        '<button class="casting-overlay__start-btn" id="videoRecView" type="button" style="background:#666;color:#fff">Көру</button>' +
+        '<button class="casting-overlay__start-btn" id="videoRecSend" type="button" style="background:linear-gradient(135deg,#c8a264,#e0c080);color:#171717">Жіберу</button>';
 
-    document.getElementById("videoRecRetry").addEventListener("click", retryRecording);
+    document.getElementById("videoRecDelete").addEventListener("click", retryRecording);
+    document.getElementById("videoRecView").addEventListener("click", function() {
+        playback.currentTime = 0;
+        playback.play();
+    });
     document.getElementById("videoRecSend").addEventListener("click", function() {
         sendVideoToCastingApi(blob);
     });
@@ -349,7 +354,7 @@ function retryRecording() {
         preview.srcObject = stream;
         preview.play();
 
-        document.getElementById("videoRecStatus").textContent = "Дайын";
+        document.getElementById("videoRecStatus").textContent = "Дайынсызба";
         document.getElementById("videoRecStatus").style.color = "#ffffff";
         document.getElementById("videoRecDesc").textContent = "Өзіңіз туралы қысқа видео жазыңыз";
 

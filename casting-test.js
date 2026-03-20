@@ -108,7 +108,7 @@ function openCastingTest() {
         return loadFaceLandmarker();
     }).then(function() {
         document.getElementById("castingStartBtn").disabled = false;
-        document.getElementById("castingEmotionLabel").textContent = "Дайын!";
+        document.getElementById("castingEmotionLabel").textContent = "Дайынсызба";
         document.getElementById("castingEmotionDesc").textContent = "\"Бастау\" батырмасын басыңыз";
     }).catch(function(err) {
         document.getElementById("castingEmotionLabel").textContent = "Камера қатесі";
