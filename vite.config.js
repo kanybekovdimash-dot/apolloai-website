@@ -18,9 +18,9 @@ export default defineConfig({
         talents: resolve(__dirname, "talents.html"),
         projects: resolve(__dirname, "projects.html"),
         contact: resolve(__dirname, "contact.html"),
-        project: resolve(__dirname, "project.html"),
-        admin: resolve(__dirname, "admin.html")
-      }
+        project: resolve(__dirname, "project.html")
+}
     }
   }
 });
+
